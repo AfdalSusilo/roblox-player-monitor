@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roblox Player Monitor – SirrushRac</title>
+  <title>Roblox Player Monitor</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
 </head>
@@ -13,31 +13,68 @@
   <header class="header">
     <div class="header-left">
       <h1>🎮 Roblox Player Monitor</h1>
-      <span class="player-badge">Player: <strong>SirrushRac</strong> (ID: 10306575664)</span>
+      <span class="player-count-badge" id="playerCountBadge">0 Player</span>
     </div>
     <div class="header-right">
-      <span class="live-dot" id="liveDot" title="Live – Data diperbarui saat halaman dibuka"></span>
-      <span class="live-label">LIVE</span>
+      <div class="live-indicator" id="liveIndicator">
+        <span class="live-dot pulse"></span>
+        <span class="live-label">LIVE</span>
+        <span class="live-timer" id="liveTimer">00:00</span>
+      </div>
       <span class="date-label" id="currentDate">—</span>
     </div>
   </header>
 
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>🎯 Player</label>
+      <select id="playerFilter" class="filter-select">
+        <option value="">Semua Player</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>📅 Tanggal Mulai</label>
+      <input type="date" id="dateStart" class="filter-date">
+    </div>
+    <div class="filter-group">
+      <label>📅 Tanggal Akhir</label>
+      <input type="date" id="dateEnd" class="filter-date">
+    </div>
+    <div class="filter-group">
+      <label>🔄 Auto-Refresh</label>
+      <select id="refreshInterval" class="filter-select refresh-select">
+        <option value="0">Mati</option>
+        <option value="10">10 detik</option>
+        <option value="30" selected>30 detik</option>
+        <option value="60">60 detik</option>
+        <option value="300">5 menit</option>
+      </select>
+    </div>
+    <div class="filter-group filter-actions">
+      <button id="applyFiltersBtn" class="btn btn-primary">🔍 Terapkan</button>
+      <button id="resetFiltersBtn" class="btn btn-outline">↺ Reset</button>
+    </div>
+  </div>
+
   <!-- TOOLBAR -->
-  <div class="toolbar">
+  <div class="toolbar" id="toolbar">
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="behavior">🏃 Behavior Logs</button>
       <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
       <button class="tab" data-tab="npc">💬 NPC Interactions</button>
+      <button class="tab" data-tab="overview">📊 Overview</button>
     </div>
     <div class="toolbar-actions">
       <input type="text" id="searchInput" placeholder="🔍 Cari…" class="search-input">
       <select id="filterType" class="filter-select">
         <option value="">Semua Event</option>
       </select>
-      <button id="exportCSV" class="btn btn-outline" title="Ekspor ke CSV">📥 CSV</button>
-      <button id="exportExcel" class="btn btn-outline" title="Ekspor ke Excel (XLSX)">📊 Excel</button>
-      <button id="exportJSON" class="btn btn-outline" title="Ekspor ke JSON">📋 JSON</button>
-      <button id="loadFullBtn" class="btn btn-accent" title="Muat data lengkap (8.3MB)">📦 Muat Full</button>
+      <div class="export-group">
+        <button id="exportCSV" class="btn btn-outline" title="Ekspor ke CSV">📥 CSV</button>
+        <button id="exportExcel" class="btn btn-outline" title="Ekspor ke Excel (XLSX)">📊 Excel</button>
+        <button id="exportJSON" class="btn btn-outline" title="Ekspor ke JSON">📋 JSON</button>
+      </div>
     </div>
   </div>
 
@@ -50,6 +87,10 @@
     <div class="stat-card">
       <div class="stat-value" id="statEvents">—</div>
       <div class="stat-label">Unique Events</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statPlayers">—</div>
+      <div class="stat-label">Players Active</div>
     </div>
     <div class="stat-card">
       <div class="stat-value" id="statTimeRange">—</div>
@@ -65,8 +106,24 @@
     </div>
   </div>
 
+  <!-- OVERVIEW PANEL (visible only on overview tab) -->
+  <div class="overview-panels" id="overviewPanels" style="display:none;">
+    <div class="panel panel-double">
+      <h3>📊 Aktivitas per Player</h3>
+      <canvas id="playerActivityChart" width="800" height="300"></canvas>
+    </div>
+    <div class="panel">
+      <h3>🎯 Player List</h3>
+      <div class="player-list" id="playerList"></div>
+    </div>
+    <div class="panel">
+      <h3>📋 Event Distribution</h3>
+      <canvas id="eventDistChart" width="400" height="300"></canvas>
+    </div>
+  </div>
+
   <!-- MAIN TABLE -->
-  <div class="table-container">
+  <div class="table-container" id="tableContainer">
     <div class="table-info">
       <span id="rowsShown">Menampilkan 0 dari 0</span>
       <div class="pagination" id="pagination"></div>
@@ -80,20 +137,21 @@
       </table>
     </div>
     <div class="table-info bottom">
-      <span>Data hanya live saat halaman dibuka &bull; Tanpa database &bull; Semua data client-side</span>
-      <span class="rows-per-page">
+      <span id="refreshNote">Data hanya live saat halaman dibuka</span>
+      <div class="rows-per-page">
         Baris/hal: 
         <select id="rowsPerPage">
           <option value="25">25</option>
           <option value="50" selected>50</option>
           <option value="100">100</option>
           <option value="200">200</option>
+          <option value="500">500</option>
         </select>
-      </span>
+      </div>
     </div>
   </div>
 
-  <!-- TIMELINE / HEATMAP SECTION (for behavior) -->
+  <!-- EXTRA PANELS (for behavior/movement) -->
   <div class="extra-panels" id="extraPanels">
     <div class="panel" id="panelTimeline">
       <h3>📈 Timeline Pergerakan</h3>
@@ -107,12 +165,11 @@
 
   <!-- FOOTER -->
   <footer class="footer">
-    <p>Roblox Player Monitor &bull; Data: <span id="footerDate">2026-06-25</span> &bull; Sumber: ARG Report Logs &bull; Tanpa Database &bull; Live Saat Dibuka</p>
+    <p>Roblox Player Monitor &bull; Data: ARG Report Logs &bull; Tanpa Database &bull; Live Saat Dibuka</p>
   </footer>
 
-  <!-- SheetJS for Excel export -->
+  <!-- Libraries -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="js/app.js"></script>
 </body>

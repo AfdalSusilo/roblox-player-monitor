@@ -1,63 +1,54 @@
-# 🎮 Roblox Player Monitor
+# 🎮 Roblox Player Monitor v2.0
 
-**Dashboard pemantauan player Roblox — live saat dibuka, tanpa database, dengan ekspor data.**
+**Dashboard pemantauan multi-player Roblox — live saat dibuka, tanpa database.**
 
 ## ✨ Fitur
 
-- 🔴 **Live Saat Dibuka** — Semua data client-side, tidak perlu server/database
-- 📊 **3 Tab Monitoring**: Behavior Logs, GUI Logs, NPC Interactions
-- 🔍 **Pencarian & Filter** real-time
-- 📈 **Visualisasi**: Timeline pergerakan & heatmap posisi (X/Y)
-- 📥 **3 Format Ekspor**: CSV, Excel (XLSX), JSON
-- 📄 **Pagination** dengan baris/halaman yang bisa disesuaikan
-- 🌙 **Dark mode** — nyaman di mata
-- 📱 **Responsif** — mobile & desktop
+- 🔴 **Live Saat Dibuka** — Tanpa server/database, semua client-side
+- 🔄 **Auto-Refresh** — Data diperbarui berkala (10s / 30s / 60s / 5m / off)
+- 🎯 **Multi-Player** — Monitor semua player, pilih spesifik
+- 📅 **Filter Tanggal** — Rentang tanggal mulai & akhir
+- 🔍 **Pencarian & Filter Event** — Real-time
+- 📊 **4 Tab**: Behavior, GUI, NPC, **Overview** (chart aktivitas per player)
+- 📈 **Visualisasi**: Timeline, Heatmap, Bar chart, Doughnut chart
+- 📄 **Sorting** — Klik header kolom untuk sort asc/desc
+- 📥 **3 Format Ekspor**: CSV, Excel (XLSX), JSON — format ARG_Report
+- 📑 **Pagination** fleksibel (25/50/100/200/500 baris)
+- 🌙 **Dark mode**
+- 📱 **Responsif**
 
 ## 🚀 Cara Menjalankan
 
-Cukup buka `index.html` di browser, atau deploy ke layanan static hosting:
+Cukup buka `index.html` di browser, atau deploy:
 
 ```bash
 # Local
 open index.html
 
-# Atau dengan static server
-npx serve .
+# Atau deploy ke Vercel (gratis) — langsung production
 ```
 
-### Deploy ke Vercel (gratis)
+## 🔗 Live Demo
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-
-1. Push repo ini ke GitHub
-2. Import ke [Vercel](https://vercel.com)
-3. Done! 🎉
+[https://roblox-player-monitor.vercel.app](https://roblox-player-monitor.vercel.app)
 
 ## 📁 Struktur Data
 
-| File | Kolom | Deskripsi |
-|------|-------|-----------|
-| `data/behavior_logs.json` | player_id, player_name, event_type, x, y, z, timestamp, behavior_code | Log pergerakan & event player |
-| `data/gui_logs.json` | player_id, player_name, player_nickname, ui_element, input_data, timestamp, … | Log interaksi GUI & jawaban form |
-| `data/npc_interactions.json` | player_id, player_name, npc_target, role, message_content, timestamp | Log percakapan player ↔ NPC |
+| File | Deskripsi |
+|------|-----------|
+| `data/behavior_logs.json` | Log pergerakan & event player |
+| `data/gui_logs.json` | Log interaksi GUI & form |
+| `data/npc_interactions.json` | Log percakapan player ↔ NPC |
 
-## 🔄 Format Ekspor
+Setiap file berisi array objek dengan format yang sama seperti sheet `ARG_Report` di Excel sumber.
 
-Hasil ekspor mengikuti format ARG_Report yang sama dengan file Excel sumber:
+## 🔄 Cara Update Data
 
-- **CSV** — kompatibel dengan Excel, Google Sheets
-- **Excel (XLSX)** — format `.xlsx` dengan sheet `ARG_Report`
-- **JSON** — struktur lengkap untuk diproses lebih lanjut
+Ganti file di folder `data/` dengan data baru (format JSON yang sama), lalu redeploy atau tekan tombol **Reset** + **Terapkan** di halaman.
 
 ## 🛠️ Teknologi
 
-- **HTML5 + CSS3 + Vanilla JS** — tanpa framework
-- **[SheetJS](https://sheetjs.com/)** — ekspor XLSX client-side
-- **[Chart.js](https://www.chartjs.org/)** — visualisasi data
-- **Tanpa database** — semua data dari file JSON statis
-
-## 📝 Catatan
-
-- Data contoh berasal dari laporan ARG tanggal **25 Juni 2026**
-- Player: **SirrushRac** (ID: 10306575664)
-- Untuk mengganti data, cukup ganti file di folder `data/` dengan format yang sama
+- **Vanilla JS** — Tanpa framework
+- **[SheetJS](https://sheetjs.com/)** — Ekspor XLSX
+- **[Chart.js](https://www.chartjs.org/)** — Visualisasi
+- **Tanpa database** — Semua dari file JSON statis
