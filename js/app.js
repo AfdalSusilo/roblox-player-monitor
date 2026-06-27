@@ -31,8 +31,7 @@ const STATE = {
   filtered: [],
   allPlayers: [],
   selectedPlayer: '',
-  dateStart: '',
-  dateEnd: '',
+  dateLive: '',
   eventType: '',
   search: '',
   page: 1,
@@ -141,29 +140,16 @@ function setupFilters() {
     STATE.allPlayers.map(p => `<option value="${escAttr(p.id)}">${escHtml(p.name)} (${p.id})</option>`).join('');
   sel.addEventListener('change', () => { STATE.selectedPlayer = sel.value; });
 
-  $('#dateStart').addEventListener('change', () => { STATE.dateStart = $('#dateStart').value; });
-  $('#dateEnd').addEventListener('change', () => { STATE.dateEnd = $('#dateEnd').value; });
+  $('#dateLive').addEventListener('change', () => { STATE.dateLive = $('#dateLive').value; });
 
-  const allTimestamps = [];
-  for (const type of ['behavior', 'gui', 'npc']) {
-    for (const row of STATE.rawData[type]) {
-      if (row.timestamp) allTimestamps.push(row.timestamp);
-    }
-  }
-  if (allTimestamps.length > 0) {
-    allTimestamps.sort();
-    const first = allTimestamps[0].slice(0, 10);
-    const last = allTimestamps[allTimestamps.length - 1].slice(0, 10);
-    $('#dateStart').value = first;
-    $('#dateEnd').value = last;
-    STATE.dateStart = first;
-    STATE.dateEnd = last;
-  }
+  // Set today's date as default — NOT from database
+  const today = new Date().toISOString().slice(0, 10);
+  $('#dateLive').value = today;
+  STATE.dateLive = today;
 
   $('#applyFiltersBtn').addEventListener('click', () => {
     STATE.selectedPlayer = $('#playerFilter').value;
-    STATE.dateStart = $('#dateStart').value;
-    STATE.dateEnd = $('#dateEnd').value;
+    STATE.dateLive = $('#dateLive').value;
     STATE.page = 1;
     applyAllFilters();
     showToast('✅ Filter diterapkan');
@@ -175,19 +161,9 @@ function setupFilters() {
 function resetFilters() {
   $('#playerFilter').value = '';
   STATE.selectedPlayer = '';
-  const allTimestamps = [];
-  for (const type of ['behavior', 'gui', 'npc']) {
-    for (const row of STATE.rawData[type]) {
-      if (row.timestamp) allTimestamps.push(row.timestamp);
-    }
-  }
-  if (allTimestamps.length > 0) {
-    allTimestamps.sort();
-    $('#dateStart').value = allTimestamps[0].slice(0, 10);
-    $('#dateEnd').value = allTimestamps[allTimestamps.length - 1].slice(0, 10);
-    STATE.dateStart = $('#dateStart').value;
-    STATE.dateEnd = $('#dateEnd').value;
-  }
+  const today = new Date().toISOString().slice(0, 10);
+  $('#dateLive').value = today;
+  STATE.dateLive = today;
   $('#filterType').value = '';
   STATE.eventType = '';
   STATE.search = '';
@@ -335,13 +311,10 @@ function applyAllFilters() {
   if (STATE.selectedPlayer) {
     data = data.filter(r => String(r.player_id) === STATE.selectedPlayer);
   }
-  if (STATE.dateStart || STATE.dateEnd) {
+  if (STATE.dateLive) {
     data = data.filter(r => {
       if (!r.timestamp) return true;
-      const d = r.timestamp.slice(0, 10);
-      if (STATE.dateStart && d < STATE.dateStart) return false;
-      if (STATE.dateEnd && d > STATE.dateEnd) return false;
-      return true;
+      return r.timestamp.slice(0, 10) === STATE.dateLive;
     });
   }
   if (STATE.eventType) {
@@ -781,7 +754,7 @@ function getExportData() {
   if (STATE.activeTab === 'overview') {
     return showToast('⚠️ Pilih tab Behavior/GUI/NPC untuk ekspor');
   }
-  const hasFilters = STATE.selectedPlayer || STATE.dateStart || STATE.dateEnd || STATE.eventType || STATE.search;
+  const hasFilters = STATE.selectedPlayer || STATE.dateLive || STATE.eventType || STATE.search;
   return (hasFilters && STATE.filtered.length > 0) ? STATE.filtered : getCurrentRawData();
 }
 
