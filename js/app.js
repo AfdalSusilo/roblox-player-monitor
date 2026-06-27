@@ -1,19 +1,36 @@
 /* ======================================================
-   Roblox Player Monitor – v2.0
-   Multi-player · Date filter · Auto-refresh · Overview
+   Roblox Player Monitor — v3.0
+   Clear tab switching · Separate views per tab · Content header
    Tanpa Database · Live Saat Dibuka
    ====================================================== */
+
+// ── TAB METADATA ──
+const TAB_META = {
+  behavior: {
+    icon: '🏃', title: 'Behavior Logs', desc: 'Log pergerakan dan event player di dalam game',
+    statEventsLabel: 'Unique Events', filterKey: 'event_type',
+  },
+  gui: {
+    icon: '🖥️', title: 'GUI Logs', desc: 'Log interaksi antarmuka, form, dan checklist player',
+    statEventsLabel: 'UI Elements', filterKey: 'ui_element',
+  },
+  npc: {
+    icon: '💬', title: 'NPC Interactions', desc: 'Log percakapan antara player dan NPC',
+    statEventsLabel: 'NPC Targets', filterKey: 'npc_target',
+  },
+  overview: {
+    icon: '📊', title: 'Overview', desc: 'Ringkasan aktivitas seluruh player dan distribusi event',
+    statEventsLabel: 'Event Types', filterKey: null,
+  },
+};
 
 // ── STATE ──
 const STATE = {
   activeTab: 'behavior',
-  // All raw data loaded from JSON
   rawData: { behavior: [], gui: [], npc: [] },
-  // Filtered data (after applying player + date + event type + search)
   filtered: [],
-  // All unique players discovered
   allPlayers: [],
-  selectedPlayer: '',    // '' = all
+  selectedPlayer: '',
   dateStart: '',
   dateEnd: '',
   eventType: '',
@@ -22,12 +39,10 @@ const STATE = {
   rowsPerPage: 50,
   sortCol: null,
   sortDir: 'asc',
-  // Refresh
   refreshInterval: 30,
   refreshTimer: null,
   liveSeconds: 0,
   liveTimerId: null,
-  // Charts
   charts: {},
 };
 
@@ -49,7 +64,7 @@ async function init() {
   setupPagination();
   setupRefresh();
   startLiveTimer();
-  renderAll();
+  switchToTab('behavior');
 }
 
 function updateClock() {
@@ -68,18 +83,15 @@ async function loadAllData() {
     gui: 'data/gui_logs.json',
     npc: 'data/npc_interactions.json',
   };
-
   for (const type of types) {
     try {
       STATE.rawData[type] = await fetchJSON(files[type]);
       console.log(`✅ ${type}: ${STATE.rawData[type].length} rows`);
     } catch (e) {
-      console.warn(`⚠️ Gagal load ${type}, coba sample...`);
+      console.warn(`⚠️ ${type}, fallback sample`);
       try {
         STATE.rawData[type] = await fetchJSON(`data/${type}_logs_sample.json`);
-        console.warn(`   Fallback sample: ${STATE.rawData[type].length} rows`);
       } catch (e2) {
-        console.error(`❌ ${type}: no data`);
         STATE.rawData[type] = [];
       }
     }
@@ -98,22 +110,20 @@ function discoverPlayers() {
   for (const type of ['behavior', 'gui', 'npc']) {
     for (const row of STATE.rawData[type]) {
       const id = row.player_id;
-      if (id && !playerMap.has(id)) {
+      if (!id) continue;
+      if (!playerMap.has(id)) {
         playerMap.set(id, {
-          id,
-          name: row.player_name || 'Unknown',
+          id, name: row.player_name || 'Unknown',
           counts: { behavior: 0, gui: 0, npc: 0 },
           firstSeen: row.timestamp || '',
           lastSeen: row.timestamp || '',
         });
       }
-      if (id) {
-        const p = playerMap.get(id);
-        p.counts[type] = (p.counts[type] || 0) + 1;
-        if (row.timestamp) {
-          if (!p.firstSeen || row.timestamp < p.firstSeen) p.firstSeen = row.timestamp;
-          if (!p.lastSeen || row.timestamp > p.lastSeen) p.lastSeen = row.timestamp;
-        }
+      const p = playerMap.get(id);
+      p.counts[type] = (p.counts[type] || 0) + 1;
+      if (row.timestamp) {
+        if (!p.firstSeen || row.timestamp < p.firstSeen) p.firstSeen = row.timestamp;
+        if (!p.lastSeen || row.timestamp > p.lastSeen) p.lastSeen = row.timestamp;
       }
     }
   }
@@ -121,28 +131,19 @@ function discoverPlayers() {
     (b.counts.behavior + b.counts.gui + b.counts.npc) -
     (a.counts.behavior + a.counts.gui + a.counts.npc)
   );
-  console.log(`👥 Players: ${STATE.allPlayers.length}`, STATE.allPlayers.map(p => p.name));
+  console.log(`👥 ${STATE.allPlayers.length} players`);
 }
 
 // ── FILTER SETUP ──
 function setupFilters() {
-  // Player dropdown
   const sel = $('#playerFilter');
   sel.innerHTML = '<option value="">Semua Player</option>' +
-    STATE.allPlayers.map(p =>
-      `<option value="${escHtml(p.id)}">${escHtml(p.name)} (${p.id})</option>`
-    ).join('');
+    STATE.allPlayers.map(p => `<option value="${escAttr(p.id)}">${escHtml(p.name)} (${p.id})</option>`).join('');
+  sel.addEventListener('change', () => { STATE.selectedPlayer = sel.value; });
 
-  sel.addEventListener('change', () => {
-    STATE.selectedPlayer = sel.value;
-    updatePlayerListSelection();
-  });
-
-  // Date inputs
   $('#dateStart').addEventListener('change', () => { STATE.dateStart = $('#dateStart').value; });
   $('#dateEnd').addEventListener('change', () => { STATE.dateEnd = $('#dateEnd').value; });
 
-  // Auto-detect date range from data
   const allTimestamps = [];
   for (const type of ['behavior', 'gui', 'npc']) {
     for (const row of STATE.rawData[type]) {
@@ -159,7 +160,6 @@ function setupFilters() {
     STATE.dateEnd = last;
   }
 
-  // Apply button
   $('#applyFiltersBtn').addEventListener('click', () => {
     STATE.selectedPlayer = $('#playerFilter').value;
     STATE.dateStart = $('#dateStart').value;
@@ -169,47 +169,74 @@ function setupFilters() {
     showToast('✅ Filter diterapkan');
   });
 
-  // Reset button
-  $('#resetFiltersBtn').addEventListener('click', () => {
-    $('#playerFilter').value = '';
-    STATE.selectedPlayer = '';
-    updatePlayerListSelection();
-    // Reset dates to full range
-    const allTimestamps = [];
-    for (const type of ['behavior', 'gui', 'npc']) {
-      for (const row of STATE.rawData[type]) {
-        if (row.timestamp) allTimestamps.push(row.timestamp);
-      }
+  $('#resetFiltersBtn').addEventListener('click', resetFilters);
+}
+
+function resetFilters() {
+  $('#playerFilter').value = '';
+  STATE.selectedPlayer = '';
+  const allTimestamps = [];
+  for (const type of ['behavior', 'gui', 'npc']) {
+    for (const row of STATE.rawData[type]) {
+      if (row.timestamp) allTimestamps.push(row.timestamp);
     }
-    if (allTimestamps.length > 0) {
-      allTimestamps.sort();
-      $('#dateStart').value = allTimestamps[0].slice(0, 10);
-      $('#dateEnd').value = allTimestamps[allTimestamps.length - 1].slice(0, 10);
-      STATE.dateStart = $('#dateStart').value;
-      STATE.dateEnd = $('#dateEnd').value;
-    }
-    $('#filterType').value = '';
-    STATE.eventType = '';
-    STATE.search = '';
-    $('#searchInput').value = '';
-    STATE.page = 1;
-    applyAllFilters();
-    showToast('🔄 Filter direset');
-  });
+  }
+  if (allTimestamps.length > 0) {
+    allTimestamps.sort();
+    $('#dateStart').value = allTimestamps[0].slice(0, 10);
+    $('#dateEnd').value = allTimestamps[allTimestamps.length - 1].slice(0, 10);
+    STATE.dateStart = $('#dateStart').value;
+    STATE.dateEnd = $('#dateEnd').value;
+  }
+  $('#filterType').value = '';
+  STATE.eventType = '';
+  STATE.search = '';
+  $('#searchInput').value = '';
+  STATE.page = 1;
+  applyAllFilters();
+  showToast('🔄 Filter direset');
 }
 
 // ── TABS ──
 function setupTabs() {
   $$('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      $$('.tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      STATE.activeTab = btn.dataset.tab;
-      STATE.page = 1;
-      updateEventTypeFilter();
-      renderAll();
+      switchToTab(btn.dataset.tab);
     });
   });
+}
+
+function switchToTab(tabName) {
+  STATE.activeTab = tabName;
+  STATE.page = 1;
+  STATE.eventType = '';
+  STATE.search = '';
+  $('#searchInput').value = '';
+  $('#filterType').value = '';
+
+  // Update tab buttons
+  $$('.tab').forEach(b => b.classList.remove('active'));
+  const activeTabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (activeTabBtn) activeTabBtn.classList.add('active');
+
+  // Update content header
+  const meta = TAB_META[tabName];
+  $('#tabContentIcon').textContent = meta.icon;
+  $('#tabContentTitle').textContent = meta.title;
+  $('#tabContentDesc').textContent = meta.desc;
+  $('#statEventsLabel').textContent = meta.statEventsLabel;
+
+  // Update badge count
+  const rawCount = STATE.rawData[tabName] ? STATE.rawData[tabName].length : 0;
+  $('#tabContentBadge').textContent = rawCount.toLocaleString() + ' baris';
+
+  // Hide all tab views, show active
+  $$('.tab-view').forEach(v => v.classList.remove('active'));
+  const viewEl = document.getElementById(`view-${tabName}`);
+  if (viewEl) viewEl.classList.add('active');
+
+  updateEventTypeFilter();
+  applyAllFilters();
 }
 
 // ── SEARCH ──
@@ -231,15 +258,12 @@ function setupEventTypeFilter() {
 }
 
 function updateEventTypeFilter() {
+  if (STATE.activeTab === 'overview') return;
   const data = getCurrentRawData();
   const sel = $('#filterType');
   sel.innerHTML = '<option value="">Semua Event</option>';
-
-  let key;
-  if (STATE.activeTab === 'behavior') key = 'event_type';
-  else if (STATE.activeTab === 'gui') key = 'ui_element';
-  else key = 'npc_target';
-
+  const key = TAB_META[STATE.activeTab].filterKey;
+  if (!key) return;
   const uniq = [...new Set(data.map(r => r[key]).filter(Boolean))].sort();
   uniq.forEach(v => {
     const opt = document.createElement('option');
@@ -255,18 +279,14 @@ function setupRefresh() {
     STATE.refreshInterval = parseInt(e.target.value);
     clearInterval(STATE.refreshTimer);
     if (STATE.refreshInterval > 0) {
-      STATE.refreshTimer = setInterval(() => {
-        refreshData();
-      }, STATE.refreshInterval * 1000);
+      STATE.refreshTimer = setInterval(refreshData, STATE.refreshInterval * 1000);
       showToast(`🔄 Auto-refresh: ${STATE.refreshInterval}s`);
     } else {
       showToast('⏸️ Auto-refresh: Mati');
     }
   });
-
-  // Start with default 30s
   if (STATE.refreshInterval > 0) {
-    STATE.refreshTimer = setInterval(() => refreshData(), STATE.refreshInterval * 1000);
+    STATE.refreshTimer = setInterval(refreshData, STATE.refreshInterval * 1000);
   }
 }
 
@@ -274,24 +294,17 @@ async function refreshData() {
   console.log('🔄 Refreshing data...');
   await loadAllData();
   discoverPlayers();
-  updatePlayerDropdown();
   applyAllFilters();
   updateRefreshNote();
 }
 
 function updateRefreshNote() {
   const now = new Date();
-  $('#refreshNote').textContent =
-    `Data diperbarui: ${now.toLocaleTimeString('id-ID')} · Auto-refresh: ${STATE.refreshInterval}s`;
-}
-
-function updatePlayerDropdown() {
-  const sel = $('#playerFilter');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Semua Player</option>' +
-    STATE.allPlayers.map(p =>
-      `<option value="${escHtml(p.id)}" ${p.id === current ? 'selected' : ''}>${escHtml(p.name)} (${p.id})</option>`
-    ).join('');
+  const note = `Data diperbarui: ${now.toLocaleTimeString('id-ID')} · Auto-refresh: ${STATE.refreshInterval}s`;
+  ['refreshNote', 'refreshNoteGui', 'refreshNoteNpc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = note;
+  });
 }
 
 // ── LIVE TIMER ──
@@ -300,56 +313,49 @@ function startLiveTimer() {
     STATE.liveSeconds++;
     const m = Math.floor(STATE.liveSeconds / 60);
     const s = STATE.liveSeconds % 60;
-    $('#liveTimer').textContent =
-      `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    $('#liveTimer').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }, 1000);
 }
 
 // ── DATA HELPERS ──
 function getCurrentRawData() {
+  if (STATE.activeTab === 'overview') return [];
   return STATE.rawData[STATE.activeTab] || [];
 }
 
 function applyAllFilters() {
-  let data = getCurrentRawData();
+  if (STATE.activeTab === 'overview') {
+    STATE.filtered = [];
+    renderAll();
+    return;
+  }
 
-  // Player filter
+  let data = [...getCurrentRawData()];
+
   if (STATE.selectedPlayer) {
     data = data.filter(r => String(r.player_id) === STATE.selectedPlayer);
   }
-
-  // Date filter
   if (STATE.dateStart || STATE.dateEnd) {
     data = data.filter(r => {
       if (!r.timestamp) return true;
-      const d = r.timestamp.slice(0, 10); // YYYY-MM-DD
+      const d = r.timestamp.slice(0, 10);
       if (STATE.dateStart && d < STATE.dateStart) return false;
       if (STATE.dateEnd && d > STATE.dateEnd) return false;
       return true;
     });
   }
-
-  // Event type filter
   if (STATE.eventType) {
-    let key;
-    if (STATE.activeTab === 'behavior') key = 'event_type';
-    else if (STATE.activeTab === 'gui') key = 'ui_element';
-    else key = 'npc_target';
-    data = data.filter(r => r[key] === STATE.eventType);
+    const key = TAB_META[STATE.activeTab].filterKey;
+    if (key) data = data.filter(r => r[key] === STATE.eventType);
   }
-
-  // Search
   if (STATE.search) {
     data = data.filter(r =>
-      Object.values(r).some(v =>
-        v != null && String(v).toLowerCase().includes(STATE.search)
-      )
+      Object.values(r).some(v => v != null && String(v).toLowerCase().includes(STATE.search))
     );
   }
 
-  // Sort if needed
   if (STATE.sortCol) {
-    data = [...data].sort((a, b) => {
+    data.sort((a, b) => {
       const va = a[STATE.sortCol] ?? '';
       const vb = b[STATE.sortCol] ?? '';
       const cmp = va < vb ? -1 : va > vb ? 1 : 0;
@@ -365,37 +371,161 @@ function applyAllFilters() {
 function renderAll() {
   updateStats();
   updatePlayerBadge();
-  updateEventTypeFilter();
-  renderTable();
-  renderPagination();
-  renderExtraPanels();
-  renderOverviewPanels();
+  updateContentBadge();
+
+  if (STATE.activeTab === 'overview') {
+    renderOverviewContent();
+  } else {
+    renderTableView();
+  }
   updateRefreshNote();
+}
+
+function updateContentBadge() {
+  if (STATE.activeTab === 'overview') {
+    $('#tabContentBadge').textContent = `${STATE.allPlayers.length} player`;
+  } else {
+    const raw = getCurrentRawData();
+    $('#tabContentBadge').textContent = raw.length.toLocaleString() + ' baris';
+  }
+}
+
+// ── TABLE VIEW (behavior, gui, npc) ──
+function renderTableView() {
+  const tab = STATE.activeTab;
+  const filtered = STATE.filtered;
+  const start = (STATE.page - 1) * STATE.rowsPerPage;
+  const end = Math.min(start + STATE.rowsPerPage, filtered.length);
+  const pageData = filtered.slice(start, end);
+
+  // Get correct DOM IDs based on tab
+  let tableId, headId, bodyId, rowsShownId, paginationId;
+  if (tab === 'behavior') {
+    tableId = 'dataTable'; headId = 'tableHead'; bodyId = 'tableBody';
+    rowsShownId = 'rowsShown'; paginationId = 'pagination';
+  } else if (tab === 'gui') {
+    tableId = 'dataTableGui'; headId = 'tableHeadGui'; bodyId = 'tableBodyGui';
+    rowsShownId = 'rowsShownGui'; paginationId = 'paginationGui';
+  } else {
+    tableId = 'dataTableNpc'; headId = 'tableHeadNpc'; bodyId = 'tableBodyNpc';
+    rowsShownId = 'rowsShownNpc'; paginationId = 'paginationNpc';
+  }
+
+  if (filtered.length === 0) {
+    document.getElementById(headId).innerHTML = '';
+    document.getElementById(bodyId).innerHTML =
+      '<tr><td colspan="99" style="text-align:center;padding:48px;color:var(--text2);">📭 Tidak ada data yang cocok dengan filter.</td></tr>';
+    document.getElementById(rowsShownId).textContent = 'Menampilkan 0 dari 0';
+    document.getElementById(paginationId).innerHTML = '';
+    return;
+  }
+
+  const cols = Object.keys(filtered[0]);
+
+  document.getElementById(headId).innerHTML = `<tr>${cols.map(c =>
+    `<th onclick="sortBy('${c}')" title="Klik untuk sort">
+      ${formatHeader(c)}
+      <span class="sort-arrow">${STATE.sortCol === c ? (STATE.sortDir === 'asc' ? '▲' : '▼') : ''}</span>
+    </th>`
+  ).join('')}</tr>`;
+
+  document.getElementById(bodyId).innerHTML = pageData.map(row =>
+    `<tr>${cols.map(c => {
+      const val = row[c];
+      const cls = cellClass(c, val);
+      const title = val != null ? escAttr(String(val)) : '';
+      return `<td${cls ? ` class="${cls}"` : ''} title="${title}">${formatCell(c, val)}</td>`;
+    }).join('')}</tr>`
+  ).join('');
+
+  document.getElementById(rowsShownId).textContent =
+    `Menampilkan ${start + 1}–${end} dari ${filtered.length.toLocaleString()}`;
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / STATE.rowsPerPage);
+  const pagEl = document.getElementById(paginationId);
+  if (totalPages <= 1) {
+    pagEl.innerHTML = totalPages === 1
+      ? '<span style="color:var(--text2);font-size:0.76rem;">Halaman 1 dari 1</span>'
+      : '';
+  } else {
+    pagEl.innerHTML = buildPaginationHTML(totalPages);
+  }
+
+  // Charts
+  if (tab === 'behavior') {
+    drawTimelineCanvas();
+    drawHeatmapCanvas();
+  } else if (tab === 'gui') {
+    drawGUITimelineCanvas();
+  }
+}
+
+function sortBy(col) {
+  STATE.sortCol = (STATE.sortCol === col) ? col : col;
+  STATE.sortDir = (STATE.sortCol === col && STATE.sortDir === 'asc') ? 'desc' : 'asc';
+  STATE.sortCol = col;
+  applyAllFilters();
+}
+
+function buildPaginationHTML(totalPages) {
+  let html = '';
+  html += `<button class="page-btn" ${STATE.page <= 1 ? 'disabled' : ''} onclick="goPage(${STATE.page - 1})">‹</button>`;
+  const maxVis = 7;
+  const pages = [];
+  if (totalPages <= maxVis) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    const left = Math.max(2, STATE.page - 2);
+    const right = Math.min(totalPages - 1, STATE.page + 2);
+    if (left > 2) pages.push('…');
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < totalPages - 1) pages.push('…');
+    pages.push(totalPages);
+  }
+  for (const p of pages) {
+    if (p === '…') html += '<span style="color:var(--text2);padding:4px 6px;">…</span>';
+    else html += `<button class="page-btn ${p === STATE.page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  html += `<button class="page-btn" ${STATE.page >= totalPages ? 'disabled' : ''} onclick="goPage(${STATE.page + 1})">›</button>`;
+  return html;
+}
+
+function goPage(p) {
+  STATE.page = p;
+  renderAll();
 }
 
 // ── STATS ──
 function updateStats() {
   const filtered = STATE.filtered;
-  const raw = getCurrentRawData();
+  const raw = STATE.activeTab === 'overview' ? [] : getCurrentRawData();
 
   $('#statTotal').textContent = filtered.length.toLocaleString();
 
-  if (STATE.activeTab === 'behavior') {
-    const events = [...new Set(filtered.map(r => r.event_type))];
-    $('#statEvents').textContent = events.length;
-  } else if (STATE.activeTab === 'gui') {
-    const els = [...new Set(filtered.map(r => r.ui_element))];
-    $('#statEvents').textContent = els.length;
-  } else if (STATE.activeTab === 'npc') {
-    const npcs = [...new Set(filtered.map(r => r.npc_target))];
-    $('#statEvents').textContent = npcs.length;
+  if (STATE.activeTab === 'overview') {
+    const allEv = new Set();
+    for (const type of ['behavior', 'gui', 'npc']) {
+      for (const row of STATE.rawData[type]) {
+        const k = type === 'behavior' ? row.event_type : type === 'gui' ? row.ui_element : row.npc_target;
+        if (k) allEv.add(k);
+      }
+    }
+    $('#statEvents').textContent = allEv.size;
+  } else {
+    const key = TAB_META[STATE.activeTab].filterKey;
+    if (key) {
+      const uniq = [...new Set(filtered.map(r => r[key]).filter(Boolean))];
+      $('#statEvents').textContent = uniq.length;
+    }
   }
 
-  // Players in current view
-  const playersInView = [...new Set(raw.map(r => r.player_id).filter(Boolean))];
-  $('#statPlayers').textContent = playersInView.length;
+  const playersInView = STATE.activeTab === 'overview'
+    ? STATE.allPlayers.length
+    : [...new Set(raw.map(r => r.player_id).filter(Boolean))].length;
+  $('#statPlayers').textContent = playersInView;
 
-  // Time range
   const timestamps = filtered.map(r => r.timestamp).filter(Boolean).sort();
   if (timestamps.length > 0) {
     const first = new Date(timestamps[0]);
@@ -415,208 +545,18 @@ function updateStats() {
 function updatePlayerBadge() {
   if (STATE.selectedPlayer) {
     const p = STATE.allPlayers.find(p => p.id === STATE.selectedPlayer);
-    $('#playerCountBadge').textContent = p ? `${p.name}` : '1 Player';
+    $('#playerCountBadge').textContent = p ? p.name : '1 Player';
   } else {
     $('#playerCountBadge').textContent = `${STATE.allPlayers.length} Player`;
   }
 }
 
-// ── TABLE ──
-function renderTable() {
-  if (STATE.activeTab === 'overview') {
-    $('#tableContainer').style.display = 'none';
-    return;
-  }
-  $('#tableContainer').style.display = 'block';
+// ── CHARTS: Behavior ──
+function drawTimelineCanvas() {
+  const ctx = document.getElementById('timelineCanvas');
+  if (!ctx) return;
+  destroyChart('timeline');
 
-  const filtered = STATE.filtered;
-  const start = (STATE.page - 1) * STATE.rowsPerPage;
-  const end = Math.min(start + STATE.rowsPerPage, filtered.length);
-  const pageData = filtered.slice(start, end);
-
-  if (filtered.length === 0) {
-    $('#tableHead').innerHTML = '';
-    $('#tableBody').innerHTML =
-      '<tr><td colspan="99" style="text-align:center;padding:48px;color:var(--text2);">📭 Tidak ada data yang cocok dengan filter.</td></tr>';
-    $('#rowsShown').textContent = 'Menampilkan 0 dari 0';
-    return;
-  }
-
-  // Build headers from first row keys
-  const cols = Object.keys(filtered[0]);
-
-  $('#tableHead').innerHTML = `<tr>${cols.map(c =>
-    `<th onclick="sortBy('${c}')" title="Klik untuk sort">
-      ${formatHeader(c)}
-      <span class="sort-arrow">${STATE.sortCol === c ? (STATE.sortDir === 'asc' ? '▲' : '▼') : ''}</span>
-    </th>`
-  ).join('')}</tr>`;
-
-  $('#tableBody').innerHTML = pageData.map(row =>
-    `<tr>${cols.map(c => {
-      const val = row[c];
-      const cls = cellClass(c, val);
-      const title = val != null ? escAttr(String(val)) : '';
-      return `<td${cls ? ` class="${cls}"` : ''} title="${title}">${formatCell(c, val)}</td>`;
-    }).join('')}</tr>`
-  ).join('');
-
-  $('#rowsShown').textContent =
-    `Menampilkan ${start + 1}–${end} dari ${filtered.length.toLocaleString()}`;
-}
-
-function sortBy(col) {
-  if (STATE.sortCol === col) {
-    STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
-  } else {
-    STATE.sortCol = col;
-    STATE.sortDir = 'asc';
-  }
-  applyAllFilters();
-}
-
-// ── PAGINATION ──
-function setupPagination() {
-  $('#rowsPerPage').addEventListener('change', (e) => {
-    STATE.rowsPerPage = parseInt(e.target.value);
-    STATE.page = 1;
-    renderAll();
-  });
-}
-
-function renderPagination() {
-  const total = STATE.filtered.length;
-  const totalPages = Math.ceil(total / STATE.rowsPerPage);
-  const container = $('#pagination');
-
-  if (totalPages <= 1) {
-    container.innerHTML = totalPages === 1
-      ? '<span style="color:var(--text2);font-size:0.78rem;">Halaman 1 dari 1</span>'
-      : '';
-    return;
-  }
-
-  let html = '';
-  html += `<button class="page-btn" ${STATE.page <= 1 ? 'disabled' : ''} onclick="goPage(${STATE.page - 1})">‹</button>`;
-
-  const maxVisible = 7;
-  let pages = [];
-  if (totalPages <= maxVisible) {
-    pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-  } else {
-    pages.push(1);
-    const left = Math.max(2, STATE.page - 2);
-    const right = Math.min(totalPages - 1, STATE.page + 2);
-    if (left > 2) pages.push('…');
-    for (let i = left; i <= right; i++) pages.push(i);
-    if (right < totalPages - 1) pages.push('…');
-    pages.push(totalPages);
-  }
-
-  for (const p of pages) {
-    if (p === '…') {
-      html += '<span style="color:var(--text2);padding:4px 6px;">…</span>';
-    } else {
-      html += `<button class="page-btn ${p === STATE.page ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
-    }
-  }
-
-  html += `<button class="page-btn" ${STATE.page >= totalPages ? 'disabled' : ''} onclick="goPage(${STATE.page + 1})">›</button>`;
-  container.innerHTML = html;
-}
-
-function goPage(p) {
-  STATE.page = p;
-  renderAll();
-}
-
-// ── EXPORT ──
-function setupExport() {
-  $('#exportCSV').addEventListener('click', exportCSV);
-  $('#exportExcel').addEventListener('click', exportExcel);
-  $('#exportJSON').addEventListener('click', exportJSON);
-}
-
-function getExportData() {
-  // Export filtered data, or all current raw data if no filters active
-  const hasFilters = STATE.selectedPlayer || STATE.dateStart || STATE.dateEnd ||
-    STATE.eventType || STATE.search;
-  return hasFilters ? STATE.filtered : getCurrentRawData();
-}
-
-function exportCSV() {
-  const data = getExportData();
-  if (!data.length) return showToast('⚠️ Tidak ada data untuk diekspor');
-  const cols = Object.keys(data[0]);
-  const csvRows = [cols.join(',')];
-  for (const row of data) {
-    csvRows.push(cols.map(c => {
-      const v = row[c];
-      if (v == null) return '';
-      const s = String(v);
-      return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-    }).join(','));
-  }
-  downloadFile('\uFEFF' + csvRows.join('\n'), `${STATE.activeTab}_logs_${dateStamp()}.csv`, 'text/csv;charset=utf-8');
-  showToast('📥 CSV terunduh');
-}
-
-function exportExcel() {
-  const data = getExportData();
-  if (!data.length) return showToast('⚠️ Tidak ada data untuk diekspor');
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'ARG_Report');
-  XLSX.writeFile(wb, `${STATE.activeTab}_logs_${dateStamp()}.xlsx`);
-  showToast('📊 Excel terunduh');
-}
-
-function exportJSON() {
-  const data = getExportData();
-  if (!data.length) return showToast('⚠️ Tidak ada data untuk diekspor');
-  downloadFile(JSON.stringify(data, null, 2), `${STATE.activeTab}_logs_${dateStamp()}.json`, 'application/json');
-  showToast('📋 JSON terunduh');
-}
-
-function downloadFile(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ── EXTRA PANELS ──
-function renderExtraPanels() {
-  const container = $('#extraPanels');
-
-  if (STATE.activeTab === 'behavior' && STATE.filtered.length > 0) {
-    container.style.display = 'grid';
-    drawTimeline();
-    drawHeatmap();
-  } else if (STATE.activeTab === 'gui') {
-    container.style.display = 'grid';
-    drawGUIChart();
-    // Hide heatmap panel for GUI
-    $('#panelHeatmap').style.display = 'none';
-    $('#panelTimeline').querySelector('h3').textContent = '📊 GUI Activity Timeline';
-  } else {
-    container.style.display = 'none';
-    destroyChart('timeline');
-    destroyChart('heatmap');
-  }
-}
-
-function destroyChart(key) {
-  if (STATE.charts[key]) { STATE.charts[key].destroy(); STATE.charts[key] = null; }
-}
-
-function drawTimeline() {
-  // Aggregate events by second
   const buckets = {};
   STATE.filtered.forEach(r => {
     if (r.timestamp) {
@@ -624,9 +564,7 @@ function drawTimeline() {
       buckets[sec] = (buckets[sec] || 0) + 1;
     }
   });
-
   const sorted = Object.entries(buckets).sort();
-  // Sample for performance
   const maxPoints = 120;
   const step = Math.max(1, Math.ceil(sorted.length / maxPoints));
   const sampled = sorted.filter((_, i) => i % step === 0);
@@ -636,25 +574,18 @@ function drawTimeline() {
   );
   const values = sampled.map(([, v]) => v);
 
-  destroyChart('timeline');
-  const ctx = document.getElementById('timelineCanvas').getContext('2d');
-  STATE.charts.timeline = new Chart(ctx, {
+  STATE.charts.timeline = new Chart(ctx.getContext('2d'), {
     type: 'line',
     data: {
       labels,
       datasets: [{
-        label: 'Events/detik',
-        data: values,
-        borderColor: '#5865f2',
-        backgroundColor: 'rgba(88,101,242,.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
+        label: 'Events/detik', data: values,
+        borderColor: '#5865f2', backgroundColor: 'rgba(88,101,242,.08)',
+        fill: true, tension: 0.3, pointRadius: 0,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { ticks: { color: '#8b8fa3', maxTicksLimit: 20 }, grid: { color: 'rgba(46,50,66,.3)' } },
@@ -662,41 +593,38 @@ function drawTimeline() {
       }
     }
   });
-  $('#panelTimeline').querySelector('h3').textContent = '📈 Timeline Pergerakan';
-  $('#panelHeatmap').style.display = '';
-  $('#panelHeatmap').querySelector('h3').textContent = '🗺️ Heatmap Posisi (X/Y)';
 }
 
-function drawHeatmap() {
+function drawHeatmapCanvas() {
+  const ctx = document.getElementById('heatmapCanvas');
+  if (!ctx) return;
+  destroyChart('heatmap');
+
   const points = STATE.filtered
     .filter(r => r.x != null && r.y != null)
     .map(r => ({ x: parseFloat(r.x), y: parseFloat(r.y) }));
 
-  destroyChart('heatmap');
-  const ctx = document.getElementById('heatmapCanvas').getContext('2d');
-
   if (points.length < 2) {
-    ctx.fillStyle = '#8b8fa3';
-    ctx.font = '14px Segoe UI';
-    ctx.textAlign = 'center';
-    ctx.fillText('Data posisi tidak cukup', 200, 200);
+    const c = ctx.getContext('2d');
+    c.fillStyle = '#8b8fa3';
+    c.font = '14px Segoe UI';
+    c.textAlign = 'center';
+    c.fillText('Data posisi tidak cukup', 200, 200);
     return;
   }
 
-  STATE.charts.heatmap = new Chart(ctx, {
+  STATE.charts.heatmap = new Chart(ctx.getContext('2d'), {
     type: 'scatter',
     data: {
       datasets: [{
         label: 'Posisi',
         data: points,
-        backgroundColor: 'rgba(88,101,242,.3)',
-        borderColor: 'rgba(88,101,242,.6)',
+        backgroundColor: 'rgba(88,101,242,.25)', borderColor: 'rgba(88,101,242,.5)',
         pointRadius: 2.5,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { title: { display: true, text: 'X Position', color: '#8b8fa3' }, ticks: { color: '#8b8fa3' }, grid: { color: 'rgba(46,50,66,.3)' } },
@@ -706,7 +634,12 @@ function drawHeatmap() {
   });
 }
 
-function drawGUIChart() {
+// ── CHARTS: GUI ──
+function drawGUITimelineCanvas() {
+  const ctx = document.getElementById('guiTimelineCanvas');
+  if (!ctx) return;
+  destroyChart('guiTimeline');
+
   const buckets = {};
   STATE.filtered.forEach(r => {
     if (r.timestamp) {
@@ -718,23 +651,17 @@ function drawGUIChart() {
   const labels = sorted.map(([k]) => new Date(k + ':00.000Z').toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
   const values = sorted.map(([, v]) => v);
 
-  destroyChart('timeline');
-  const ctx = document.getElementById('timelineCanvas').getContext('2d');
-  STATE.charts.timeline = new Chart(ctx, {
+  STATE.charts.guiTimeline = new Chart(ctx.getContext('2d'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
-        label: 'GUI Events',
-        data: values,
-        backgroundColor: 'rgba(88,101,242,.5)',
-        borderColor: '#5865f2',
-        borderWidth: 1,
+        label: 'GUI Events', data: values,
+        backgroundColor: 'rgba(88,101,242,.5)', borderColor: '#5865f2', borderWidth: 1,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { ticks: { color: '#8b8fa3', maxTicksLimit: 20 }, grid: { color: 'rgba(46,50,66,.3)' } },
@@ -744,14 +671,8 @@ function drawGUIChart() {
   });
 }
 
-// ── OVERVIEW PANELS ──
-function renderOverviewPanels() {
-  const container = $('#overviewPanels');
-  if (STATE.activeTab !== 'overview') {
-    container.style.display = 'none';
-    return;
-  }
-  container.style.display = 'grid';
+// ── OVERVIEW ──
+function renderOverviewContent() {
   renderPlayerList();
   renderPlayerActivityChart();
   renderEventDistChart();
@@ -759,21 +680,20 @@ function renderOverviewPanels() {
 
 function renderPlayerList() {
   const list = $('#playerList');
-  let players = STATE.allPlayers;
-  if (STATE.selectedPlayer) {
-    players = players.filter(p => p.id === STATE.selectedPlayer);
-  }
+  let players = STATE.selectedPlayer
+    ? STATE.allPlayers.filter(p => p.id === STATE.selectedPlayer)
+    : STATE.allPlayers;
   list.innerHTML = players.map(p => {
     const total = p.counts.behavior + p.counts.gui + p.counts.npc;
     return `<div class="player-list-item${p.id === STATE.selectedPlayer ? ' selected' : ''}"
-                onclick="selectPlayer('${escHtml(p.id)}')">
+                onclick="selectPlayer('${escAttr(p.id)}')">
       <div>
         <div class="player-list-name">${escHtml(p.name)}</div>
         <div class="player-list-meta">ID: ${escHtml(p.id)}</div>
       </div>
       <div style="text-align:right;">
         <div style="font-weight:600;color:var(--accent);">${total.toLocaleString()}</div>
-        <div class="player-list-meta">total logs</div>
+        <div class="player-list-meta">total</div>
       </div>
     </div>`;
   }).join('');
@@ -784,22 +704,16 @@ function selectPlayer(id) {
   $('#playerFilter').value = id;
   STATE.page = 1;
   applyAllFilters();
-  updatePlayerListSelection();
-}
-
-function updatePlayerListSelection() {
-  if (STATE.activeTab === 'overview') renderPlayerList();
 }
 
 function renderPlayerActivityChart() {
   destroyChart('playerActivity');
-  const ctx = document.getElementById('playerActivityChart').getContext('2d');
-
+  const ctx = document.getElementById('playerActivityChart');
+  if (!ctx) return;
   const players = STATE.selectedPlayer
     ? STATE.allPlayers.filter(p => p.id === STATE.selectedPlayer)
     : STATE.allPlayers.slice(0, 10);
-
-  STATE.charts.playerActivity = new Chart(ctx, {
+  STATE.charts.playerActivity = new Chart(ctx.getContext('2d'), {
     type: 'bar',
     data: {
       labels: players.map(p => p.name),
@@ -810,8 +724,7 @@ function renderPlayerActivityChart() {
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#8b8fa3' } } },
       scales: {
         x: { stacked: true, ticks: { color: '#8b8fa3', maxRotation: 45 }, grid: { color: 'rgba(46,50,66,.3)' } },
@@ -823,9 +736,8 @@ function renderPlayerActivityChart() {
 
 function renderEventDistChart() {
   destroyChart('eventDist');
-  const ctx = document.getElementById('eventDistChart').getContext('2d');
-
-  // Aggregate all event types
+  const ctx = document.getElementById('eventDistChart');
+  if (!ctx) return;
   const counts = {};
   for (const type of ['behavior', 'gui', 'npc']) {
     for (const row of STATE.rawData[type]) {
@@ -837,10 +749,8 @@ function renderEventDistChart() {
       counts[key] = (counts[key] || 0) + 1;
     }
   }
-
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-
-  STATE.charts.eventDist = new Chart(ctx, {
+  STATE.charts.eventDist = new Chart(ctx.getContext('2d'), {
     type: 'doughnut',
     data: {
       labels: sorted.map(([k]) => String(k).slice(0, 20)),
@@ -850,9 +760,88 @@ function renderEventDistChart() {
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#8b8fa3', font: { size: 10 } } } }
+    }
+  });
+}
+
+function destroyChart(key) {
+  if (STATE.charts[key]) { STATE.charts[key].destroy(); STATE.charts[key] = null; }
+}
+
+// ── EXPORT ──
+function setupExport() {
+  $('#exportCSV').addEventListener('click', exportCSV);
+  $('#exportExcel').addEventListener('click', exportExcel);
+  $('#exportJSON').addEventListener('click', exportJSON);
+}
+
+function getExportData() {
+  if (STATE.activeTab === 'overview') {
+    return showToast('⚠️ Pilih tab Behavior/GUI/NPC untuk ekspor');
+  }
+  const hasFilters = STATE.selectedPlayer || STATE.dateStart || STATE.dateEnd || STATE.eventType || STATE.search;
+  return (hasFilters && STATE.filtered.length > 0) ? STATE.filtered : getCurrentRawData();
+}
+
+function exportCSV() {
+  const data = getExportData();
+  if (!data || !data.length) return showToast('⚠️ Tidak ada data');
+  const cols = Object.keys(data[0]);
+  const csvRows = [cols.join(',')];
+  for (const row of data) {
+    csvRows.push(cols.map(c => {
+      const v = row[c];
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(','));
+  }
+  downloadFile('\uFEFF' + csvRows.join('\n'), `${STATE.activeTab}_logs_${dateStamp()}.csv`, 'text/csv;charset=utf-8');
+  showToast('📥 CSV terunduh');
+}
+
+function exportExcel() {
+  const data = getExportData();
+  if (!data || !data.length) return showToast('⚠️ Tidak ada data');
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ARG_Report');
+  XLSX.writeFile(wb, `${STATE.activeTab}_logs_${dateStamp()}.xlsx`);
+  showToast('📊 Excel terunduh');
+}
+
+function exportJSON() {
+  const data = getExportData();
+  if (!data || !data.length) return showToast('⚠️ Tidak ada data');
+  downloadFile(JSON.stringify(data, null, 2), `${STATE.activeTab}_logs_${dateStamp()}.json`, 'application/json');
+  showToast('📋 JSON terunduh');
+}
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── PAGINATION SETUP ──
+function setupPagination() {
+  ['rowsPerPage', 'rowsPerPageGui', 'rowsPerPageNpc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', (e) => {
+        STATE.rowsPerPage = parseInt(e.target.value);
+        STATE.page = 1;
+        // Sync all selects
+        ['rowsPerPage', 'rowsPerPageGui', 'rowsPerPageNpc'].forEach(sid => {
+          const sel = document.getElementById(sid);
+          if (sel && sel !== e.target) sel.value = e.target.value;
+        });
+        renderAll();
+      });
     }
   });
 }

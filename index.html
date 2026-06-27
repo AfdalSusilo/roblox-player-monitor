@@ -57,24 +57,48 @@
     </div>
   </div>
 
-  <!-- TOOLBAR -->
+  <!-- TOOLBAR + TABS -->
   <div class="toolbar" id="toolbar">
     <div class="tabs" id="tabs">
-      <button class="tab active" data-tab="behavior">🏃 Behavior Logs</button>
-      <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
-      <button class="tab" data-tab="npc">💬 NPC Interactions</button>
-      <button class="tab" data-tab="overview">📊 Overview</button>
+      <button class="tab active" data-tab="behavior">
+        <span class="tab-icon">🏃</span>
+        <span class="tab-label">Behavior Logs</span>
+      </button>
+      <button class="tab" data-tab="gui">
+        <span class="tab-icon">🖥️</span>
+        <span class="tab-label">GUI Logs</span>
+      </button>
+      <button class="tab" data-tab="npc">
+        <span class="tab-icon">💬</span>
+        <span class="tab-label">NPC Interactions</span>
+      </button>
+      <button class="tab" data-tab="overview">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">Overview</span>
+      </button>
     </div>
     <div class="toolbar-actions">
-      <input type="text" id="searchInput" placeholder="🔍 Cari…" class="search-input">
+      <input type="text" id="searchInput" placeholder="🔍 Cari di tabel…" class="search-input">
       <select id="filterType" class="filter-select">
         <option value="">Semua Event</option>
       </select>
       <div class="export-group">
-        <button id="exportCSV" class="btn btn-outline" title="Ekspor ke CSV">📥 CSV</button>
-        <button id="exportExcel" class="btn btn-outline" title="Ekspor ke Excel (XLSX)">📊 Excel</button>
-        <button id="exportJSON" class="btn btn-outline" title="Ekspor ke JSON">📋 JSON</button>
+        <button id="exportCSV" class="btn btn-outline btn-sm" title="Ekspor CSV">📥 CSV</button>
+        <button id="exportExcel" class="btn btn-outline btn-sm" title="Ekspor Excel">📊 Excel</button>
+        <button id="exportJSON" class="btn btn-outline btn-sm" title="Ekspor JSON">📋 JSON</button>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT HEADER -->
+  <div class="tab-content-header" id="tabContentHeader">
+    <div class="tab-content-title">
+      <span class="tab-content-icon" id="tabContentIcon">🏃</span>
+      <h2 id="tabContentTitle">Behavior Logs</h2>
+      <span class="tab-content-badge" id="tabContentBadge">16.640 baris</span>
+    </div>
+    <div class="tab-content-desc" id="tabContentDesc">
+      Log pergerakan dan event player di dalam game
     </div>
   </div>
 
@@ -86,7 +110,7 @@
     </div>
     <div class="stat-card">
       <div class="stat-value" id="statEvents">—</div>
-      <div class="stat-label">Unique Events</div>
+      <div class="stat-label" id="statEventsLabel">Unique Events</div>
     </div>
     <div class="stat-card">
       <div class="stat-value" id="statPlayers">—</div>
@@ -106,66 +130,137 @@
     </div>
   </div>
 
-  <!-- OVERVIEW PANEL (visible only on overview tab) -->
-  <div class="overview-panels" id="overviewPanels" style="display:none;">
-    <div class="panel panel-double">
-      <h3>📊 Aktivitas per Player</h3>
-      <canvas id="playerActivityChart" width="800" height="300"></canvas>
-    </div>
-    <div class="panel">
-      <h3>🎯 Player List</h3>
-      <div class="player-list" id="playerList"></div>
-    </div>
-    <div class="panel">
-      <h3>📋 Event Distribution</h3>
-      <canvas id="eventDistChart" width="400" height="300"></canvas>
-    </div>
-  </div>
+  <!-- MAIN CONTENT AREA — switches per tab -->
+  <div class="content-area" id="contentArea">
 
-  <!-- MAIN TABLE -->
-  <div class="table-container" id="tableContainer">
-    <div class="table-info">
-      <span id="rowsShown">Menampilkan 0 dari 0</span>
-      <div class="pagination" id="pagination"></div>
-    </div>
-    <div class="table-wrapper">
-      <table id="dataTable">
-        <thead id="tableHead"></thead>
-        <tbody id="tableBody">
-          <tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="table-info bottom">
-      <span id="refreshNote">Data hanya live saat halaman dibuka</span>
-      <div class="rows-per-page">
-        Baris/hal: 
-        <select id="rowsPerPage">
-          <option value="25">25</option>
-          <option value="50" selected>50</option>
-          <option value="100">100</option>
-          <option value="200">200</option>
-          <option value="500">500</option>
-        </select>
+    <!-- BEHAVIOR VIEW -->
+    <div class="tab-view active" id="view-behavior">
+      <div class="table-container">
+        <div class="table-info">
+          <span id="rowsShown">Menampilkan 0 dari 0</span>
+          <div class="pagination" id="pagination"></div>
+        </div>
+        <div class="table-wrapper">
+          <table id="dataTable">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody">
+              <tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-info bottom">
+          <span id="refreshNote">Data hanya live saat halaman dibuka</span>
+          <div class="rows-per-page">
+            Baris/hal:
+            <select id="rowsPerPage">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="extra-panels" id="extraPanelsBehavior">
+        <div class="panel" id="panelTimeline">
+          <h3>📈 Timeline Pergerakan</h3>
+          <canvas id="timelineCanvas" width="800" height="300"></canvas>
+        </div>
+        <div class="panel" id="panelHeatmap">
+          <h3>🗺️ Heatmap Posisi (X/Y)</h3>
+          <canvas id="heatmapCanvas" width="400" height="400"></canvas>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- EXTRA PANELS (for behavior/movement) -->
-  <div class="extra-panels" id="extraPanels">
-    <div class="panel" id="panelTimeline">
-      <h3>📈 Timeline Pergerakan</h3>
-      <canvas id="timelineCanvas" width="800" height="300"></canvas>
+    <!-- GUI VIEW -->
+    <div class="tab-view" id="view-gui">
+      <div class="table-container">
+        <div class="table-info">
+          <span id="rowsShownGui">Menampilkan 0 dari 0</span>
+          <div class="pagination" id="paginationGui"></div>
+        </div>
+        <div class="table-wrapper">
+          <table id="dataTableGui">
+            <thead id="tableHeadGui"></thead>
+            <tbody id="tableBodyGui">
+              <tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-info bottom">
+          <span id="refreshNoteGui">Data hanya live saat halaman dibuka</span>
+          <div class="rows-per-page">
+            Baris/hal:
+            <select id="rowsPerPageGui">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="extra-panels" id="extraPanelsGui">
+        <div class="panel panel-full">
+          <h3>📊 GUI Activity Timeline</h3>
+          <canvas id="guiTimelineCanvas" width="800" height="300"></canvas>
+        </div>
+      </div>
     </div>
-    <div class="panel" id="panelHeatmap">
-      <h3>🗺️ Heatmap Posisi (X/Y)</h3>
-      <canvas id="heatmapCanvas" width="400" height="400"></canvas>
+
+    <!-- NPC VIEW -->
+    <div class="tab-view" id="view-npc">
+      <div class="table-container">
+        <div class="table-info">
+          <span id="rowsShownNpc">Menampilkan 0 dari 0</span>
+          <div class="pagination" id="paginationNpc"></div>
+        </div>
+        <div class="table-wrapper">
+          <table id="dataTableNpc">
+            <thead id="tableHeadNpc"></thead>
+            <tbody id="tableBodyNpc">
+              <tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-info bottom">
+          <span id="refreshNoteNpc">Data hanya live saat halaman dibuka</span>
+          <div class="rows-per-page">
+            Baris/hal:
+            <select id="rowsPerPageNpc">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- OVERVIEW VIEW -->
+    <div class="tab-view" id="view-overview">
+      <div class="overview-panels">
+        <div class="panel panel-double">
+          <h3>📊 Aktivitas per Player</h3>
+          <canvas id="playerActivityChart" width="800" height="300"></canvas>
+        </div>
+        <div class="panel">
+          <h3>🎯 Player List</h3>
+          <div class="player-list" id="playerList"></div>
+        </div>
+        <div class="panel">
+          <h3>📋 Event Distribution</h3>
+          <canvas id="eventDistChart" width="400" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- FOOTER -->
   <footer class="footer">
-    <p>Roblox Player Monitor &bull; Data: ARG Report Logs &bull; Tanpa Database &bull; Live Saat Dibuka</p>
+    <p>Roblox Player Monitor · Data: ARG Report Logs · Tanpa Database · Live Saat Dibuka</p>
   </footer>
 
   <!-- Libraries -->
