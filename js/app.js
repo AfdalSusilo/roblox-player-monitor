@@ -103,7 +103,7 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-// ── PLAYER DISCOVERY ──
+// ── PLAYER DISCOVERY (static base, but counts always from dynamic filters) ──
 function discoverPlayers() {
   const playerMap = new Map();
   for (const type of ['behavior', 'gui', 'npc']) {
@@ -113,23 +113,26 @@ function discoverPlayers() {
       if (!playerMap.has(id)) {
         playerMap.set(id, {
           id, name: row.player_name || 'Unknown',
-          counts: { behavior: 0, gui: 0, npc: 0 },
           firstSeen: row.timestamp || '',
           lastSeen: row.timestamp || '',
         });
       }
       const p = playerMap.get(id);
-      p.counts[type] = (p.counts[type] || 0) + 1;
       if (row.timestamp) {
         if (!p.firstSeen || row.timestamp < p.firstSeen) p.firstSeen = row.timestamp;
         if (!p.lastSeen || row.timestamp > p.lastSeen) p.lastSeen = row.timestamp;
       }
     }
   }
-  STATE.allPlayers = [...playerMap.values()].sort((a, b) =>
-    (b.counts.behavior + b.counts.gui + b.counts.npc) -
-    (a.counts.behavior + a.counts.gui + a.counts.npc)
-  );
+  STATE.allPlayers = [...playerMap.values()].sort((a, b) => {
+    const ca = filterRawData('behavior').filter(r => String(r.player_id) === a.id).length +
+               filterRawData('gui').filter(r => String(r.player_id) === a.id).length +
+               filterRawData('npc').filter(r => String(r.player_id) === a.id).length;
+    const cb = filterRawData('behavior').filter(r => String(r.player_id) === b.id).length +
+               filterRawData('gui').filter(r => String(r.player_id) === b.id).length +
+               filterRawData('npc').filter(r => String(r.player_id) === b.id).length;
+    return cb - ca;
+  });
   console.log(`👥 ${STATE.allPlayers.length} players`);
 }
 
@@ -161,6 +164,7 @@ function setupFilters() {
     STATE.dateLive = $('#dateLive').value;
     STATE.page = 1;
     applyAllFilters();
+    pulseStats();
     showToast('✅ Filter diterapkan');
   });
 
@@ -179,6 +183,7 @@ function resetFilters() {
   $('#searchInput').value = '';
   STATE.page = 1;
   applyAllFilters();
+  pulseStats();
   showToast('🔄 Filter direset');
 }
 
@@ -211,14 +216,20 @@ function switchToTab(tabName) {
   $('#tabContentDesc').textContent = meta.desc;
   $('#statEventsLabel').textContent = meta.statEventsLabel;
 
-  // Update badge count
-  const rawCount = STATE.rawData[tabName] ? STATE.rawData[tabName].length : 0;
-  $('#tabContentBadge').textContent = rawCount.toLocaleString() + ' baris';
+  // Badge will be updated by renderAll → updateContentBadge → dynamic count
 
-  // Hide all tab views, show active
+  // Hide all tab views, show active + animate
   $$('.tab-view').forEach(v => v.classList.remove('active'));
   const viewEl = document.getElementById(`view-${tabName}`);
   if (viewEl) viewEl.classList.add('active');
+
+  // Animate icon bump
+  $('#tabContentIcon').style.transform = 'scale(1.3)';
+  setTimeout(() => { $('#tabContentIcon').style.transform = 'scale(1)'; }, 200);
+
+  // Re-pulse live dot
+  const dot = document.querySelector('.live-dot');
+  if (dot) { dot.classList.remove('pulse'); void dot.offsetWidth; dot.classList.add('pulse'); }
 
   updateEventTypeFilter();
   applyAllFilters();
@@ -281,6 +292,15 @@ async function refreshData() {
   discoverPlayers();
   applyAllFilters();
   updateRefreshNote();
+  pulseStats();
+
+  // Pulse live label to show refresh happened
+  const liveLabel = document.querySelector('.live-label');
+  if (liveLabel) {
+    liveLabel.style.transform = 'scale(1.2)';
+    liveLabel.style.color = '#4ade80';
+    setTimeout(() => { liveLabel.style.transform = 'scale(1)'; liveLabel.style.color = ''; }, 400);
+  }
 }
 
 function updateRefreshNote() {
@@ -354,6 +374,7 @@ function renderAll() {
   updateStats();
   updatePlayerBadge();
   updateContentBadge();
+  updateTabDescription();
 
   if (STATE.activeTab === 'overview') {
     renderOverviewContent();
@@ -363,12 +384,26 @@ function renderAll() {
   updateRefreshNote();
 }
 
+function updateTabDescription() {
+  let desc = TAB_META[STATE.activeTab].desc;
+  const parts = [];
+  if (STATE.selectedPlayer) {
+    const p = STATE.allPlayers.find(x => x.id === STATE.selectedPlayer);
+    parts.push(`Player: ${p ? p.name : STATE.selectedPlayer}`);
+  }
+  if (STATE.dateLive) parts.push(`Tanggal: ${STATE.dateLive}`);
+  if (parts.length) desc += ' · ' + parts.join(' · ');
+  $('#tabContentDesc').textContent = desc;
+}
+
 function updateContentBadge() {
   if (STATE.activeTab === 'overview') {
-    $('#tabContentBadge').textContent = `${STATE.allPlayers.length} player`;
+    // Dynamic: only players matching current filter
+    const filteredPlayers = getFilteredPlayerCount();
+    $('#tabContentBadge').textContent = `${filteredPlayers} player`;
   } else {
-    const raw = getCurrentRawData();
-    $('#tabContentBadge').textContent = raw.length.toLocaleString() + ' baris';
+    // Dynamic: filtered row count, not total
+    $('#tabContentBadge').textContent = STATE.filtered.length.toLocaleString() + ' baris';
   }
 }
 
@@ -484,17 +519,27 @@ function goPage(p) {
   renderAll();
 }
 
-// ── STATS ──
+// ── STATS (fully dynamic, based on applied filters) ──
 function updateStats() {
   const filtered = STATE.filtered;
-  const raw = STATE.activeTab === 'overview' ? [] : getCurrentRawData();
 
-  $('#statTotal').textContent = filtered.length.toLocaleString();
+  // TOTAL RECORDS
+  if (STATE.activeTab === 'overview') {
+    let totalAcrossAll = 0;
+    for (const type of ['behavior', 'gui', 'npc']) {
+      totalAcrossAll += countFilteredAcross(type);
+    }
+    $('#statTotal').textContent = totalAcrossAll.toLocaleString();
+  } else {
+    $('#statTotal').textContent = filtered.length.toLocaleString();
+  }
 
+  // UNIQUE EVENTS
   if (STATE.activeTab === 'overview') {
     const allEv = new Set();
     for (const type of ['behavior', 'gui', 'npc']) {
-      for (const row of STATE.rawData[type]) {
+      const data = filterRawData(type);
+      for (const row of data) {
         const k = type === 'behavior' ? row.event_type : type === 'gui' ? row.ui_element : row.npc_target;
         if (k) allEv.add(k);
       }
@@ -508,11 +553,21 @@ function updateStats() {
     }
   }
 
-  const playersInView = STATE.activeTab === 'overview'
-    ? STATE.allPlayers.length
-    : [...new Set(raw.map(r => r.player_id).filter(Boolean))].length;
-  $('#statPlayers').textContent = playersInView;
+  // PLAYERS ACTIVE — fully dynamic from filtered data
+  if (STATE.activeTab === 'overview') {
+    const pids = new Set();
+    for (const type of ['behavior', 'gui', 'npc']) {
+      for (const row of filterRawData(type)) {
+        if (row.player_id) pids.add(row.player_id);
+      }
+    }
+    $('#statPlayers').textContent = pids.size;
+  } else {
+    const pids = new Set(filtered.map(r => r.player_id).filter(Boolean));
+    $('#statPlayers').textContent = pids.size;
+  }
 
+  // TIME RANGE / FIRST / LAST
   const timestamps = filtered.map(r => r.timestamp).filter(Boolean).sort();
   if (timestamps.length > 0) {
     const first = new Date(timestamps[0]);
@@ -520,21 +575,75 @@ function updateStats() {
     const diffMin = Math.round((last - first) / 60000);
     $('#statFirstSeen').textContent = formatDateTime(first);
     $('#statLastSeen').textContent = formatDateTime(last);
+    STATE._liveFirst = first;
+    STATE._liveLast = last;
     $('#statTimeRange').textContent =
       diffMin < 60 ? `${diffMin} mnt` : diffMin < 1440 ? `${Math.floor(diffMin/60)}j ${diffMin%60}m` : `${Math.floor(diffMin/1440)}h ${Math.floor((diffMin%1440)/60)}j`;
+  } else if (STATE.activeTab === 'overview') {
+    // Overview: calculate across all types
+    const allTS = [];
+    for (const type of ['behavior', 'gui', 'npc']) {
+      for (const row of filterRawData(type)) {
+        if (row.timestamp) allTS.push(row.timestamp);
+      }
+    }
+    allTS.sort();
+    if (allTS.length > 0) {
+      const first = new Date(allTS[0]);
+      const last = new Date(allTS[allTS.length - 1]);
+      const diffMin = Math.round((last - first) / 60000);
+      $('#statFirstSeen').textContent = formatDateTime(first);
+      $('#statLastSeen').textContent = formatDateTime(last);
+      $('#statTimeRange').textContent =
+        diffMin < 60 ? `${diffMin} mnt` : diffMin < 1440 ? `${Math.floor(diffMin/60)}j ${diffMin%60}m` : `${Math.floor(diffMin/1440)}h ${Math.floor((diffMin%1440)/60)}j`;
+    } else {
+      $('#statFirstSeen').textContent = '—';
+      $('#statLastSeen').textContent = '—';
+      $('#statTimeRange').textContent = '—';
+    }
   } else {
-    $('#statFirstSeen').textContent = '—';
-    $('#statLastSeen').textContent = '—';
+    $('#statFirstSeen').textContent = STATE._liveFirst ? formatDateTime(STATE._liveFirst) : '—';
+    $('#statLastSeen').textContent = STATE._liveLast ? formatDateTime(STATE._liveLast) : '—';
     $('#statTimeRange').textContent = '—';
   }
 }
 
+// Dynamic helpers: apply player + date filter to raw data of any type
+function filterRawData(type) {
+  let data = STATE.rawData[type] || [];
+  if (STATE.selectedPlayer) {
+    data = data.filter(r => String(r.player_id) === STATE.selectedPlayer);
+  }
+  if (STATE.dateLive) {
+    data = data.filter(r => {
+      if (!r.timestamp) return true;
+      return r.timestamp.slice(0, 10) === STATE.dateLive;
+    });
+  }
+  return data;
+}
+
+function countFilteredAcross(type) {
+  return filterRawData(type).length;
+}
+
+function getFilteredPlayerCount() {
+  const pids = new Set();
+  for (const type of ['behavior', 'gui', 'npc']) {
+    for (const row of filterRawData(type)) {
+      if (row.player_id) pids.add(row.player_id);
+    }
+  }
+  return pids.size;
+}
+
 function updatePlayerBadge() {
+  const count = getFilteredPlayerCount();
   if (STATE.selectedPlayer) {
     const p = STATE.allPlayers.find(p => p.id === STATE.selectedPlayer);
     $('#playerCountBadge').textContent = p ? p.name : '1 Player';
   } else {
-    $('#playerCountBadge').textContent = `${STATE.allPlayers.length} Player`;
+    $('#playerCountBadge').textContent = `${count} Player Aktif`;
   }
 }
 
@@ -667,11 +776,27 @@ function renderOverviewContent() {
 
 function renderPlayerList() {
   const list = $('#playerList');
-  let players = STATE.selectedPlayer
-    ? STATE.allPlayers.filter(p => p.id === STATE.selectedPlayer)
-    : STATE.allPlayers;
+
+  // Dynamic: only players matching current filter
+  const filteredPids = new Set();
+  for (const type of ['behavior', 'gui', 'npc']) {
+    const data = filterRawData(type);
+    for (const row of data) {
+      if (row.player_id) filteredPids.add(row.player_id);
+    }
+  }
+
+  const players = STATE.allPlayers.filter(p => filteredPids.has(p.id));
+  if (players.length === 0) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text2);">Tidak ada player dengan filter ini</div>';
+    return;
+  }
+
+  // Count from filtered data
+  const getCount = (p, type) => filterRawData(type).filter(r => String(r.player_id) === p.id).length;
+
   list.innerHTML = players.map(p => {
-    const total = p.counts.behavior + p.counts.gui + p.counts.npc;
+    const total = getCount(p, 'behavior') + getCount(p, 'gui') + getCount(p, 'npc');
     return `<div class="player-list-item${p.id === STATE.selectedPlayer ? ' selected' : ''}"
                 onclick="selectPlayer('${escAttr(p.id)}')">
       <div>
@@ -680,7 +805,7 @@ function renderPlayerList() {
       </div>
       <div style="text-align:right;">
         <div style="font-weight:600;color:var(--accent);">${total.toLocaleString()}</div>
-        <div class="player-list-meta">total</div>
+        <div class="player-list-meta">logs</div>
       </div>
     </div>`;
   }).join('');
@@ -697,17 +822,41 @@ function renderPlayerActivityChart() {
   destroyChart('playerActivity');
   const ctx = document.getElementById('playerActivityChart');
   if (!ctx) return;
-  const players = STATE.selectedPlayer
-    ? STATE.allPlayers.filter(p => p.id === STATE.selectedPlayer)
-    : STATE.allPlayers.slice(0, 10);
+
+  // Dynamic: only players matching current filter
+  const filteredPids = new Set();
+  for (const type of ['behavior', 'gui', 'npc']) {
+    for (const row of filterRawData(type)) {
+      if (row.player_id) filteredPids.add(row.player_id);
+    }
+  }
+  const players = STATE.allPlayers
+    .filter(p => filteredPids.has(p.id))
+    .slice(0, 10);
+
+  if (players.length === 0) {
+    STATE.charts.playerActivity = new Chart(ctx.getContext('2d'), {
+      type: 'bar',
+      data: { labels: ['Tidak ada data'], datasets: [{ label: '', data: [0], backgroundColor: '#2e3242' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+    return;
+  }
+
+  // Dynamic counts from filtered data
+  const getFilteredCount = (p, type) => {
+    const data = filterRawData(type);
+    return data.filter(r => String(r.player_id) === p.id).length;
+  };
+
   STATE.charts.playerActivity = new Chart(ctx.getContext('2d'), {
     type: 'bar',
     data: {
       labels: players.map(p => p.name),
       datasets: [
-        { label: 'Behavior', data: players.map(p => p.counts.behavior), backgroundColor: '#5865f2' },
-        { label: 'GUI', data: players.map(p => p.counts.gui), backgroundColor: '#7c3aed' },
-        { label: 'NPC', data: players.map(p => p.counts.npc), backgroundColor: '#06b6d4' },
+        { label: 'Behavior', data: players.map(p => getFilteredCount(p, 'behavior')), backgroundColor: '#5865f2' },
+        { label: 'GUI', data: players.map(p => getFilteredCount(p, 'gui')), backgroundColor: '#7c3aed' },
+        { label: 'NPC', data: players.map(p => getFilteredCount(p, 'npc')), backgroundColor: '#06b6d4' },
       ]
     },
     options: {
@@ -725,10 +874,12 @@ function renderEventDistChart() {
   destroyChart('eventDist');
   const ctx = document.getElementById('eventDistChart');
   if (!ctx) return;
+
+  // Dynamic counts from filtered data
   const counts = {};
   for (const type of ['behavior', 'gui', 'npc']) {
-    for (const row of STATE.rawData[type]) {
-      if (STATE.selectedPlayer && String(row.player_id) !== STATE.selectedPlayer) continue;
+    const data = filterRawData(type);
+    for (const row of data) {
       let key;
       if (type === 'behavior') key = row.event_type || 'unknown';
       else if (type === 'gui') key = row.ui_element || 'unknown';
@@ -755,6 +906,14 @@ function renderEventDistChart() {
 
 function destroyChart(key) {
   if (STATE.charts[key]) { STATE.charts[key].destroy(); STATE.charts[key] = null; }
+}
+
+function pulseStats() {
+  document.querySelectorAll('.stat-value').forEach(el => {
+    el.style.color = '#4ade80';
+    el.style.transform = 'scale(1.06)';
+    setTimeout(() => { el.style.color = ''; el.style.transform = ''; }, 500);
+  });
 }
 
 function clearAllCharts(tab) {
