@@ -134,6 +134,15 @@ function discoverPlayers() {
 }
 
 // ── FILTER SETUP ──
+function findDataDate() {
+  for (const type of ['behavior', 'gui', 'npc']) {
+    for (const row of STATE.rawData[type]) {
+      if (row.timestamp) return row.timestamp.slice(0, 10);
+    }
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
 function setupFilters() {
   const sel = $('#playerFilter');
   sel.innerHTML = '<option value="">Semua Player</option>' +
@@ -142,10 +151,10 @@ function setupFilters() {
 
   $('#dateLive').addEventListener('change', () => { STATE.dateLive = $('#dateLive').value; });
 
-  // Set today's date as default — NOT from database
-  const today = new Date().toISOString().slice(0, 10);
-  $('#dateLive').value = today;
-  STATE.dateLive = today;
+  // Default to the data's date, not today
+  const dataDate = findDataDate();
+  $('#dateLive').value = dataDate;
+  STATE.dateLive = dataDate;
 
   $('#applyFiltersBtn').addEventListener('click', () => {
     STATE.selectedPlayer = $('#playerFilter').value;
@@ -161,9 +170,9 @@ function setupFilters() {
 function resetFilters() {
   $('#playerFilter').value = '';
   STATE.selectedPlayer = '';
-  const today = new Date().toISOString().slice(0, 10);
-  $('#dateLive').value = today;
-  STATE.dateLive = today;
+  const dataDate = findDataDate();
+  $('#dateLive').value = dataDate;
+  STATE.dateLive = dataDate;
   $('#filterType').value = '';
   STATE.eventType = '';
   STATE.search = '';
@@ -387,9 +396,14 @@ function renderTableView() {
   if (filtered.length === 0) {
     document.getElementById(headId).innerHTML = '';
     document.getElementById(bodyId).innerHTML =
-      '<tr><td colspan="99" style="text-align:center;padding:48px;color:var(--text2);">📭 Tidak ada data yang cocok dengan filter.</td></tr>';
+      `<tr><td colspan="99" style="text-align:center;padding:48px;color:var(--text2);">
+        📭 Tidak ada data untuk tanggal <b>${STATE.dateLive || '(semua)'}</b>
+        ${STATE.selectedPlayer ? ' · Player: ' + STATE.selectedPlayer : ''}
+        <br><small style="color:var(--accent);">Coba ubah filter tanggal atau player</small>
+      </td></tr>`;
     document.getElementById(rowsShownId).textContent = 'Menampilkan 0 dari 0';
     document.getElementById(paginationId).innerHTML = '';
+    clearAllCharts(tab);
     return;
   }
 
@@ -741,6 +755,15 @@ function renderEventDistChart() {
 
 function destroyChart(key) {
   if (STATE.charts[key]) { STATE.charts[key].destroy(); STATE.charts[key] = null; }
+}
+
+function clearAllCharts(tab) {
+  if (tab === 'behavior') {
+    destroyChart('timeline');
+    destroyChart('heatmap');
+  } else if (tab === 'gui') {
+    destroyChart('guiTimeline');
+  }
 }
 
 // ── EXPORT ──
