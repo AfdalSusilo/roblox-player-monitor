@@ -7,6 +7,9 @@
 const STATE = {
   activeTab: 'behavior',
   data: { behavior: [], gui: [], npc: [] },
+  fullData: { behavior: [], gui: [], npc: [] },
+  fullLoaded: { behavior: false, gui: false, npc: false },
+  fullLoading: false,
   filtered: [],
   page: 1,
   rowsPerPage: 50,
@@ -39,20 +42,67 @@ async function init() {
 // ── DATA LOADING ──
 async function loadAllData() {
   try {
-    // Load sample for fast initial render, full data available for export
-    STATE.data.behavior = await fetchJSON('data/behavior_logs.json');
-    STATE.data.gui = await fetchJSON('data/gui_logs.json');
-    STATE.data.npc = await fetchJSON('data/npc_interactions.json');
-    console.log('✅ Data loaded:', {
+    // Load sample for fast initial render
+    STATE.data.behavior = await fetchJSON('data/behavior_logs_sample.json');
+    STATE.data.gui = await fetchJSON('data/gui_logs_sample.json');
+    STATE.data.npc = await fetchJSON('data/npc_interactions_sample.json');
+    console.log('✅ Sample data loaded:', {
       behavior: STATE.data.behavior.length,
       gui: STATE.data.gui.length,
       npc: STATE.data.npc.length,
     });
+    // Start background load of full data
+    loadFullDataBackground();
   } catch (e) {
     console.error('Gagal memuat data:', e);
     document.getElementById('tableBody').innerHTML =
       '<tr><td colspan="99" style="color:var(--red);text-align:center;padding:40px;">❌ Gagal memuat data. Pastikan file JSON tersedia di folder data/.</td></tr>';
   }
+}
+
+async function loadFullDataBackground() {
+  if (STATE.fullLoading) return;
+  STATE.fullLoading = true;
+  const types = ['behavior', 'gui', 'npc'];
+  const urls = {
+    behavior: 'data/behavior_logs.json',
+    gui: 'data/gui_logs.json',
+    npc: 'data/npc_interactions.json',
+  };
+  
+  for (const type of types) {
+    try {
+      STATE.fullData[type] = await fetchJSON(urls[type]);
+      STATE.fullLoaded[type] = true;
+      console.log(`✅ Full ${type} data: ${STATE.fullData[type].length} rows`);
+    } catch (e) {
+      console.warn(`⚠️ Gagal memuat full ${type}, fallback ke sample`);
+      STATE.fullData[type] = [...STATE.data[type]];
+    }
+  }
+  
+  // Update badge if user on the tab that now has full data
+  updateFullDataBadge();
+}
+
+function updateFullDataBadge() {
+  const type = STATE.activeTab;
+  if (STATE.fullLoaded[type]) {
+    const badge = document.getElementById('fullDataBadge');
+    if (badge) badge.style.display = 'none';
+  }
+}
+
+function useFullData() {
+  const type = STATE.activeTab;
+  if (STATE.fullLoaded[type]) {
+    STATE.data[type] = STATE.fullData[type];
+    STATE.page = 1;
+    applyFilters();
+    updateFullDataBadge();
+    return true;
+  }
+  return false;
 }
 
 async function fetchJSON(url) {
@@ -116,6 +166,11 @@ function updateFilterOptions() {
 
 // ── DATA ──
 function getCurrentData() {
+  // Auto-use full data if loaded
+  const type = STATE.activeTab;
+  if (STATE.fullLoaded[type] && STATE.data[type].length < STATE.fullData[type].length) {
+    STATE.data[type] = STATE.fullData[type];
+  }
   return STATE.data[STATE.activeTab] || [];
 }
 
@@ -318,10 +373,19 @@ function setupExport() {
   $('#exportCSV').addEventListener('click', exportCSV);
   $('#exportExcel').addEventListener('click', exportExcel);
   $('#exportJSON').addEventListener('click', exportJSON);
-}
+  $('#loadFullBtn').addEventListener('click', () => {\n    const btn = $('#loadFullBtn');\n    const type = STATE.activeTab;\n    if (STATE.fullLoaded[type]) {\n      // Force refresh\n      STATE.data[type] = STATE.fullData[type];\n      STATE.page = 1;\n      applyFilters();\n      return;\n    }\n    btn.textContent = '⏳ Loading…';\n    btn.disabled = true;\n    // Trigger background load if not started\n    if (!STATE.fullLoading) {\n      loadFullDataBackground().then(() => {\n        useFullData();\n        btn.textContent = '✅ Full Loaded';\n        setTimeout(() => { btn.textContent = '📦 Muat Full'; btn.disabled = true; }, 2000);\n      });\n    } else {\n      // Already loading, poll\n      const check = setInterval(() => {\n        if (STATE.fullLoaded[type]) {\n          clearInterval(check);\n          useFullData();\n          btn.textContent = '✅ Full Loaded';\n          setTimeout(() => { btn.textContent = '📦 Muat Full'; btn.disabled = true; }, 2000);\n        }\n      }, 500);\n    }\n  });\n  // Disable button once full data auto-loads\n  setInterval(() => {\n    const type = STATE.activeTab;\n    const btn = $('#loadFullBtn');\n    if (STATE.fullLoaded[type]) {\n      btn.textContent = '✅ Full Ready';\n      btn.disabled = true;\n    }\n  }, 2000);\n}
 
 function getExportData() {
-  return STATE.filtered.length > 0 ? STATE.filtered : getCurrentData();
+  const type = STATE.activeTab;
+  // Use full data for export if available
+  const source = (STATE.fullLoaded[type] && STATE.fullData[type].length > 0)
+    ? STATE.fullData[type]
+    : getCurrentData();
+  // If user has active search/filter, export filtered; otherwise export all
+  if (STATE.search || STATE.filterType) {
+    return STATE.filtered.length > 0 ? STATE.filtered : source;
+  }
+  return source;
 }
 
 function exportCSV() {

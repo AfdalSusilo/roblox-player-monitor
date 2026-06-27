@@ -123,6 +123,9 @@ body {
 }
 .btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-outline { background: transparent; }
+.btn-accent { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.btn-accent:hover { background: var(--accent); border-color: var(--accent); }
+.btn-accent:disabled { opacity: .5; cursor: default; background: var(--surface2); border-color: var(--border); color: var(--text2); }
 
 /* ===== STATS ROW ===== */
 .stats-row {
