@@ -5,7 +5,8 @@
 
 const $ = s => document.querySelector(s);
 const DATA = {
-  npc: [], behavior: [], players: {}, npcs: {},
+  npc: [], behavior: [], gui: [],
+  players: {}, npcs: {},
   lastUpdate: null,
 };
 
@@ -25,12 +26,14 @@ function updateClock() {
 // ── DATA LOADING ──
 async function loadAll() {
   try {
-    const [npcRes, behaviorRes] = await Promise.all([
+    const [npcRes, behaviorRes, guiRes] = await Promise.all([
       fetch('data/npc_interactions.json').then(r => r.json()).catch(() => []),
       fetch('data/behavior_logs.json').then(r => r.json()).catch(() => []),
+      fetch('data/gui_logs.json').then(r => r.json()).catch(() => []),
     ]);
     DATA.npc = Array.isArray(npcRes) ? npcRes : [];
     DATA.behavior = Array.isArray(behaviorRes) ? behaviorRes : [];
+    DATA.gui = Array.isArray(guiRes) ? guiRes : [];
     DATA.lastUpdate = new Date();
   } catch(e) {
     console.warn('Load error:', e);
@@ -51,12 +54,16 @@ function computeStats() {
   for (const row of DATA.behavior) {
     if (row.player_name) playerSet.add(row.player_name);
   }
+  for (const row of DATA.gui) {
+    if (row.player_name) playerSet.add(row.player_name);
+  }
   
   DATA.players = {};
   for (const name of playerSet) {
     const chats = DATA.npc.filter(r => r.player_name === name).length;
     const moves = DATA.behavior.filter(r => r.player_name === name).length;
-    DATA.players[name] = { chats, moves };
+    const guis = DATA.gui.filter(r => r.player_name === name).length;
+    DATA.players[name] = { chats, moves, guis };
   }
   DATA.npcs = Object.entries(npcCount)
     .sort((a,b) => b[1] - a[1])
@@ -75,6 +82,7 @@ function renderAll() {
   renderStats();
   renderChat();
   renderBehavior();
+  renderGui();
   renderPlayers();
   renderNpcs();
   renderFilters();
@@ -84,6 +92,7 @@ function renderAll() {
 function renderStats() {
   $('#statChats').textContent = DATA.npc.length.toLocaleString();
   $('#statMoves').textContent = DATA.behavior.length.toLocaleString();
+  $('#statGui').textContent = DATA.gui.length.toLocaleString();
   $('#statPlayers').textContent = Object.keys(DATA.players).length;
   $('#statNpcs').textContent = Object.keys(DATA.npcs).length || 56;
   $('#playerCount').textContent = Object.keys(DATA.players).length + ' pemain';
@@ -117,7 +126,6 @@ function renderChat() {
     `;
   }).join('');
   
-  // Scroll to bottom
   container.scrollTop = container.scrollHeight;
 }
 
@@ -144,10 +152,37 @@ function renderBehavior() {
   }).join('');
 }
 
+// ── GUI TABLE ──
+function renderGui() {
+  const playerFilter = $('#guiPlayerFilter')?.value || '';
+  const sectionFilter = $('#guiSectionFilter')?.value || '';
+  
+  let data = [...DATA.gui].reverse();
+  if (playerFilter) data = data.filter(r => r.player_name === playerFilter);
+  if (sectionFilter) data = data.filter(r => r.section === sectionFilter);
+  
+  const tbody = $('#guiBody');
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">🖥️ Belum ada interaksi GUI</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = data.slice(0, 200).map(row => {
+    const time = row.timestamp ? new Date(row.timestamp).toLocaleString('id-ID') : '—';
+    return `<tr>
+      <td>${time}</td>
+      <td>${escHtml(row.player_name || '—')}</td>
+      <td><span class="badge-section">${escHtml(row.section || '—')}</span></td>
+      <td>${escHtml(row.element_name || row.input_type || '—')}</td>
+      <td>${escHtml(String(row.value || row.form_data || '—').substring(0, 80))}</td>
+    </tr>`;
+  }).join('');
+}
+
 // ── PLAYER LIST ──
 function renderPlayers() {
   const container = $('#playerList');
-  const entries = Object.entries(DATA.players).sort((a,b) => (b[1].chats + b[1].moves) - (a[1].chats + a[1].moves));
+  const entries = Object.entries(DATA.players).sort((a,b) => (b[1].chats + b[1].moves + b[1].guis) - (a[1].chats + a[1].moves + a[1].guis));
   
   if (entries.length === 0) {
     container.innerHTML = '<div class="empty-state small">Belum ada pemain</div>';
@@ -157,7 +192,7 @@ function renderPlayers() {
   container.innerHTML = entries.map(([name, stats]) => `
     <div class="player-item" onclick="filterPlayer('${escAttr(name)}')">
       <span class="player-name">👤 ${escHtml(name)}</span>
-      <span class="player-count-badge">${stats.chats + stats.moves} event</span>
+      <span class="player-count-badge">${stats.chats + stats.moves + stats.guis} event</span>
     </div>
   `).join('');
 }
@@ -182,10 +217,13 @@ function renderNpcs() {
 function renderFilters() {
   const names = Object.keys(DATA.players).sort();
   const npcNames = [...new Set(DATA.npc.map(r => r.npc_name).filter(Boolean))].sort();
+  const sections = [...new Set(DATA.gui.map(r => r.section).filter(Boolean))].sort();
   
   const playerFilter = $('#npcPlayerFilter');
   const npcFilter = $('#npcNameFilter');
   const behaviorFilter = $('#behaviorPlayerFilter');
+  const guiPlayerFilter = $('#guiPlayerFilter');
+  const guiSectionFilter = $('#guiSectionFilter');
   
   if (playerFilter) {
     const cur = playerFilter.value;
@@ -202,6 +240,16 @@ function renderFilters() {
     behaviorFilter.innerHTML = '<option value="">Semua Pemain</option>' +
       names.map(n => `<option value="${escAttr(n)}" ${n === cur ? 'selected' : ''}>${escHtml(n)}</option>`).join('');
   }
+  if (guiPlayerFilter) {
+    const cur = guiPlayerFilter.value;
+    guiPlayerFilter.innerHTML = '<option value="">Semua Pemain</option>' +
+      names.map(n => `<option value="${escAttr(n)}" ${n === cur ? 'selected' : ''}>${escHtml(n)}</option>`).join('');
+  }
+  if (guiSectionFilter) {
+    const cur = guiSectionFilter.value;
+    guiSectionFilter.innerHTML = '<option value="">Semua Section</option>' +
+      sections.map(s => `<option value="${escAttr(s)}" ${s === cur ? 'selected' : ''}>${escHtml(s)}</option>`).join('');
+  }
   
   // Attach change listeners
   if (playerFilter && !playerFilter._bound) {
@@ -216,6 +264,14 @@ function renderFilters() {
     behaviorFilter._bound = true;
     behaviorFilter.addEventListener('change', renderBehavior);
   }
+  if (guiPlayerFilter && !guiPlayerFilter._bound) {
+    guiPlayerFilter._bound = true;
+    guiPlayerFilter.addEventListener('change', renderGui);
+  }
+  if (guiSectionFilter && !guiSectionFilter._bound) {
+    guiSectionFilter._bound = true;
+    guiSectionFilter.addEventListener('change', renderGui);
+  }
 }
 
 // ── CLICK HANDLERS ──
@@ -224,6 +280,8 @@ function filterPlayer(name) {
   if (pf) { pf.value = name; renderChat(); }
   const bf = $('#behaviorPlayerFilter');
   if (bf) { bf.value = name; renderBehavior(); }
+  const gf = $('#guiPlayerFilter');
+  if (gf) { gf.value = name; renderGui(); }
 }
 function filterNpc(name) {
   const nf = $('#npcNameFilter');

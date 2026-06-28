@@ -31,6 +31,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="npc">💬 Chat NPC</button>
         <button class="tab" data-tab="behavior">🏃 Pergerakan</button>
+        <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
       </div>
 
       <!-- NPC CHAT TAB -->
@@ -71,6 +72,34 @@
         </div>
       </div>
 
+      <!-- GUI LOGS TAB -->
+      <div class="tab-content" id="tab-gui">
+        <div class="chat-filter">
+          <select id="guiPlayerFilter" class="filter-select">
+            <option value="">Semua Pemain</option>
+          </select>
+          <select id="guiSectionFilter" class="filter-select">
+            <option value="">Semua Section</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="guiTable">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Pemain</th>
+                <th>Section</th>
+                <th>Element</th>
+                <th>Nilai</th>
+              </tr>
+            </thead>
+            <tbody id="guiBody">
+              <tr><td colspan="5" class="empty-state">🖥️ Belum ada interaksi GUI</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
     <!-- RIGHT: Stats + Player list -->
@@ -86,6 +115,10 @@
           <div class="stat">
             <span class="stat-val" id="statMoves">0</span>
             <span class="stat-lbl">Pergerakan</span>
+          </div>
+          <div class="stat">
+            <span class="stat-val" id="statGui">0</span>
+            <span class="stat-lbl">GUI Logs</span>
           </div>
           <div class="stat">
             <span class="stat-val" id="statPlayers">0</span>

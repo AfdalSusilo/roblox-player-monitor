@@ -191,6 +191,13 @@ tr:hover td { background: rgba(79,140,255,.04); }
   border-radius: 10px; font-size: 0.66rem; font-weight: 600;
 }
 
+/* GUI section badge */
+.badge-section {
+  display: inline-block; padding: 2px 8px;
+  background: rgba(6,182,212,.12); color: var(--cyan);
+  border-radius: 8px; font-size: 0.7rem; font-weight: 600;
+}
+
 /* ===== EMPTY STATE ===== */
 .empty-state {
   text-align: center; padding: 40px; color: var(--text2);
