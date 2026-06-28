@@ -9,149 +9,202 @@
 </head>
 <body>
 
+  <!-- HEADER -->
   <header class="header">
     <div class="header-left">
       <h1>🌊 Simulasi Banjir — Desa Sukamaju</h1>
-      <span class="badge-live" id="liveBadge">
-        <span class="dot"></span> LIVE
-      </span>
-      <span class="player-count" id="playerCount">0 pemain</span>
+      <span class="player-count-badge" id="playerCountBadge">0 Pemain</span>
     </div>
     <div class="header-right">
-      <span class="last-update" id="lastUpdate">—</span>
-      <button class="btn-refresh" onclick="refreshData()">🔄 Refresh</button>
+      <div class="live-indicator" id="liveIndicator">
+        <span class="live-dot pulse"></span>
+        <span class="live-label">LIVE</span>
+        <span class="live-timer" id="liveTimer">00:00</span>
+      </div>
+      <span class="date-label" id="currentDate">—</span>
     </div>
   </header>
 
-  <div class="main-container">
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>🎯 Player</label>
+      <select id="playerFilter" class="filter-select">
+        <option value="">Semua Player</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>📅 Tanggal</label>
+      <input type="date" id="dateLive" class="filter-date">
+    </div>
+    <div class="filter-group">
+      <label>🔄 Auto-Refresh</label>
+      <select id="refreshInterval" class="filter-select refresh-select">
+        <option value="0">Mati</option>
+        <option value="10" selected>10 detik</option>
+        <option value="30">30 detik</option>
+        <option value="60">60 detik</option>
+        <option value="300">5 menit</option>
+      </select>
+    </div>
+    <div class="filter-group filter-actions">
+      <button id="applyFiltersBtn" class="btn btn-primary">🔍 Terapkan</button>
+      <button id="resetFiltersBtn" class="btn btn-outline">↺ Reset</button>
+    </div>
+  </div>
 
-    <!-- LEFT: Chat + Behavior tabs -->
+  <!-- MAIN LAYOUT: Tabs + Minimap -->
+  <div class="main-layout">
+
+    <!-- LEFT: Tabs + Content -->
     <div class="content-left">
 
-      <div class="tabs">
-        <button class="tab active" data-tab="npc">💬 Chat NPC</button>
-        <button class="tab" data-tab="behavior">🏃 Pergerakan</button>
-        <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
-      </div>
-
-      <!-- NPC CHAT TAB -->
-      <div class="tab-content active" id="tab-npc">
-        <div class="chat-filter">
-          <select id="npcPlayerFilter" class="filter-select">
-            <option value="">Semua Pemain</option>
-          </select>
-          <select id="npcNameFilter" class="filter-select">
-            <option value="">Semua NPC</option>
-          </select>
+      <!-- TABS -->
+      <div class="toolbar" id="toolbar">
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="behavior">🏃 Behavior</button>
+          <button class="tab" data-tab="npc">💬 Chat NPC</button>
+          <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
+          <button class="tab" data-tab="overview">📊 Overview</button>
         </div>
-        <div class="chat-log" id="chatLog">
-          <div class="empty-state">💬 Belum ada percakapan NPC</div>
+        <div class="toolbar-actions">
+          <input type="text" id="searchInput" placeholder="🔍 Cari..." class="search-input">
+          <select id="filterType" class="filter-select"><option value="">Semua</option></select>
+          <div class="export-group">
+            <button id="exportCSV" class="btn btn-outline btn-sm">📥 CSV</button>
+            <button id="exportJSON" class="btn btn-outline btn-sm">📋 JSON</button>
+          </div>
         </div>
       </div>
 
       <!-- BEHAVIOR TAB -->
-      <div class="tab-content" id="tab-behavior">
-        <div class="behavior-filter">
-          <select id="behaviorPlayerFilter" class="filter-select">
-            <option value="">Semua Pemain</option>
-          </select>
+      <div class="tab-view active" id="view-behavior">
+        <div class="table-container">
+          <div class="table-info">
+            <span id="rowsShown">Menampilkan 0 dari 0</span>
+            <div class="pagination" id="pagination"></div>
+          </div>
+          <div class="table-wrapper">
+            <table id="dataTable">
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"><tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-info bottom">
+            <span id="refreshNote">Data live saat halaman dibuka</span>
+            <div class="rows-per-page">
+              Baris/hal:
+              <select id="rowsPerPage">
+                <option value="25">25</option><option value="50" selected>50</option>
+                <option value="100">100</option><option value="200">200</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="table-wrap">
-          <table id="behaviorTable">
-            <thead>
-              <tr>
-                <th>Waktu</th>
-                <th>Pemain</th>
-                <th>Posisi (X, Y)</th>
-              </tr>
-            </thead>
-            <tbody id="behaviorBody">
-              <tr><td colspan="3" class="empty-state">🏃 Belum ada data pergerakan</td></tr>
-            </tbody>
-          </table>
+      </div>
+
+      <!-- NPC CHAT TAB -->
+      <div class="tab-view" id="view-npc">
+        <div class="table-container">
+          <div class="table-info">
+            <span id="rowsShownNpc">Menampilkan 0 dari 0</span>
+            <div class="pagination" id="paginationNpc"></div>
+          </div>
+          <div class="chat-log-box" id="chatLogBox">
+            <div class="empty-state">💬 Belum ada percakapan NPC</div>
+          </div>
         </div>
       </div>
 
       <!-- GUI LOGS TAB -->
-      <div class="tab-content" id="tab-gui">
-        <div class="chat-filter">
-          <select id="guiPlayerFilter" class="filter-select">
-            <option value="">Semua Pemain</option>
-          </select>
-          <select id="guiSectionFilter" class="filter-select">
-            <option value="">Semua Section</option>
-          </select>
+      <div class="tab-view" id="view-gui">
+        <div class="table-container">
+          <div class="table-info">
+            <span id="rowsShownGui">Menampilkan 0 dari 0</span>
+            <div class="pagination" id="paginationGui"></div>
+          </div>
+          <div class="table-wrapper">
+            <table id="dataTableGui">
+              <thead id="tableHeadGui"></thead>
+              <tbody id="tableBodyGui"><tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-info bottom">
+            <span id="refreshNoteGui">Data live</span>
+          </div>
         </div>
-        <div class="table-wrap">
-          <table id="guiTable">
-            <thead>
-              <tr>
-                <th>Waktu</th>
-                <th>Pemain</th>
-                <th>Section</th>
-                <th>Element</th>
-                <th>Nilai</th>
-              </tr>
-            </thead>
-            <tbody id="guiBody">
-              <tr><td colspan="5" class="empty-state">🖥️ Belum ada interaksi GUI</td></tr>
-            </tbody>
-          </table>
+      </div>
+
+      <!-- OVERVIEW TAB -->
+      <div class="tab-view" id="view-overview">
+        <div class="overview-panels">
+          <div class="panel panel-double">
+            <h3>📈 Timeline Aktivitas</h3>
+            <canvas id="activityChart" width="800" height="250"></canvas>
+          </div>
+          <div class="panel">
+            <h3>👥 Pemain</h3>
+            <div class="player-list" id="playerListPanel"></div>
+          </div>
+          <div class="panel">
+            <h3>🤖 NPC Terpopuler</h3>
+            <div class="npc-list-panel" id="npcListPanel"></div>
+          </div>
         </div>
       </div>
 
     </div>
 
-    <!-- RIGHT: Stats + Player list -->
+    <!-- RIGHT: Minimap + Stats -->
     <div class="content-right">
 
-      <div class="panel stats-panel">
-        <h3>📊 Statistik</h3>
-        <div class="stat-grid">
-          <div class="stat">
-            <span class="stat-val" id="statChats">0</span>
-            <span class="stat-lbl">Chat NPC</span>
-          </div>
-          <div class="stat">
-            <span class="stat-val" id="statMoves">0</span>
-            <span class="stat-lbl">Pergerakan</span>
-          </div>
-          <div class="stat">
-            <span class="stat-val" id="statGui">0</span>
-            <span class="stat-lbl">GUI Logs</span>
-          </div>
-          <div class="stat">
-            <span class="stat-val" id="statPlayers">0</span>
-            <span class="stat-lbl">Pemain</span>
-          </div>
-          <div class="stat">
-            <span class="stat-val" id="statNpcs">56</span>
-            <span class="stat-lbl">NPC Aktif</span>
-          </div>
+      <!-- STATS -->
+      <div class="stats-row-vert" id="statsRowVert">
+        <div class="stat-card">
+          <div class="stat-value" id="statChats">0</div>
+          <div class="stat-label">Chat NPC</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statMoves">0</div>
+          <div class="stat-label">Pergerakan</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statGui">0</div>
+          <div class="stat-label">GUI Logs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statPlayers">0</div>
+          <div class="stat-label">Pemain</div>
         </div>
       </div>
 
-      <div class="panel players-panel">
-        <h3>👥 Pemain Online</h3>
-        <div class="player-list" id="playerList">
-          <div class="empty-state small">Belum ada pemain</div>
+      <!-- MINIMAP -->
+      <div class="panel minimap-panel">
+        <h3>🗺️ Minimap — Posisi Player</h3>
+        <div class="minimap-wrap">
+          <canvas id="minimapCanvas" width="280" height="280"></canvas>
+        </div>
+        <div class="minimap-legend">
+          <span class="legend-item"><span class="legend-dot active"></span> Aktif (5m)</span>
+          <span class="legend-item"><span class="legend-dot recent"></span> Baru (15m)</span>
+          <span class="legend-item"><span class="legend-dot old"></span> Lama</span>
         </div>
       </div>
 
-      <div class="panel npc-panel">
-        <h3>🤖 NPC Terpopuler</h3>
-        <div class="npc-list" id="npcList">
-          <div class="empty-state small">Belum ada interaksi</div>
-        </div>
+      <!-- ACTIVE PLAYERS -->
+      <div class="panel players-mini">
+        <h3>👥 Player Aktif</h3>
+        <div class="player-list" id="playerList"></div>
       </div>
 
     </div>
 
   </div>
 
+  <!-- FOOTER -->
   <footer class="footer">
-    <span>Simulasi Banjir · Desa Sukamaju · Roblox</span>
-    <span>Data diperbarui otomatis setiap 10 detik</span>
+    <span>Simulasi Banjir · Desa Sukamaju · Auto-refresh tiap 10s</span>
+    <span id="footerUpdate">—</span>
   </footer>
 
   <script src="js/app.js"></script>
