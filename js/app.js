@@ -13,7 +13,7 @@ async function F(endpoint,fallback){
 }
 
 const S={tab:'behavior',raw:{behavior:[],gui:[],npc:[]},fil:[],ap:[],sp:'',dl:'',et:'',sr:'',p:1,rpp:50,sc:null,sd:'asc',ri:10,rt:null,ls:0,backend:'Supabase'};
-const M={behavior:{fk:'behavior_sequence'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},overview:{fk:null}};
+const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},overview:{fk:null}};
 
 async function init(){tick();setInterval(tick,1e3);await load();disc();fsetup();tsetup();ssetup();esetup();rsetup();ltimer();sw('behavior')}
 function tick(){const n=new Date();if($('#currentDate'))$('#currentDate').textContent=n.toLocaleDateString('id-ID',{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});if($('#footerUpdate'))$('#footerUpdate').textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');}
@@ -43,7 +43,7 @@ function ubadge(){if($('#playerCountBadge'))$('#playerCountBadge').textContent=S
 
 // ── TABLE ──
 function rtab(){const m={behavior:{tid:'dataTable',hid:'tableHead',bid:'tableBody',rid:'rowsShown',pid:'pagination'},gui:{tid:'dataTableGui',hid:'tableHeadGui',bid:'tableBodyGui',rid:'rowsShownGui',pid:'paginationGui'}}[S.tab];if(!m)return;const f=S.fil,st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,f.length),pd=f.slice(st,en);if(!f.length){document.getElementById(m.hid).innerHTML='';document.getElementById(m.bid).innerHTML='<tr><td colspan="99" class="empty-state">📭 Tidak ada data</td></tr>';document.getElementById(m.rid).textContent='Menampilkan 0 dari 0';document.getElementById(m.pid).innerHTML='';return;}
-const cols=(S.tab==='behavior'?['created_at','player_name','posisi','behavior_sequence']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_'))));
+const cols=(S.tab==='behavior'?['created_at','player_name','posisi','behavior_code','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_'))));
 document.getElementById(m.hid).innerHTML='<tr>'+cols.map(c=>'<th onclick="sb(\''+c+'\')">'+fhdr(c)+'<span class="sort-arrow">'+(S.sc===c?(S.sd==='asc'?'▲':'▼'):'')+'</span></th>').join('')+'</tr>';
 document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c])+'</td>').join('')+'</tr>').join('');
 document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari '+f.length.toLocaleString();
@@ -144,10 +144,11 @@ function fcell(c,v){
   if(v==null)return'—';
   if(c==='created_at'||c==='timestamp')try{return new Date(v).toLocaleString('id-ID');}catch(e){return String(v);}
   if(c==='posisi'){
-    if(Array.isArray(v)&&v.length){const p=v[v.length-1];return'('+Math.round(p.x)+', '+Math.round(p.y)+')';}
+    if(Array.isArray(v)&&v.length){const p=v[v.length-1];return'('+Math.round(p.x)+', '+Math.round(p.y)+(p.z!=null?', '+Math.round(p.z):'')+')';}
     return'—';
   }
-  if(c==='position_history'&&Array.isArray(v)&&v.length){const p=v[v.length-1];return'('+Math.round(p.x)+', '+Math.round(p.y)+')';}
+  if(c==='position_history'&&Array.isArray(v)&&v.length){const p=v[v.length-1];return'('+Math.round(p.x)+', '+Math.round(p.y)+(p.z!=null?', '+Math.round(p.z):'')+')';}
+  if(c==='behavior_code')return'<span class="badge-code code-'+escA(String(v||'').charAt(0))+'\">'+escH(String(v||'—'))+'</span>';
   if(c==='input_data'&&typeof v==='string'){try{const j=JSON.parse(v);return j.value||j.section||v.slice(0,50);}catch(e){return v.slice(0,60);}}
   if(Array.isArray(v))return v[0]||'';
   if(typeof v==='object')return JSON.stringify(v).slice(0,50);
