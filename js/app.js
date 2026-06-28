@@ -308,8 +308,9 @@ function renderNpcChat(){
   
   box.innerHTML=pageData.map(row=>{
     const time=row.timestamp?new Date(row.timestamp).toLocaleTimeString('id-ID'):'';
-    const msg=row.message||'(kosong)';
-    return '<div class="chat-bubble player"><div class="npc-label">🤖 '+escHtml(row.npc_name||'NPC')+'</div><div class="sender">'+escHtml(row.player_name||'Player')+'</div><div>'+escHtml(msg)+'</div><div class="time">'+time+'</div></div>';
+    const msg=row.message||row.message_content||'(kosong)';
+    const npc=row.npc_name||row.npc_target||'NPC';
+    return '<div class="chat-bubble player"><div class="npc-label">🤖 '+escHtml(npc)+'</div><div class="sender">'+escHtml(row.player_name||'Player')+'</div><div>'+escHtml(msg)+'</div><div class="time">'+time+'</div></div>';
   }).join('');
   box.scrollTop=box.scrollHeight;
 
@@ -426,15 +427,20 @@ function drawMinimap(){
   ctx.strokeStyle='#1e2438';ctx.lineWidth=0.5;
   for(let i=0;i<=size;i+=size/10){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,size);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(size,i);ctx.stroke();}
   
-  // Get player positions from behavior data
+  // Get player positions from behavior data (handle both old & new format)
   const positions={};
   const now=new Date();
   for(const row of(STATE.rawData.behavior||[])){
     const name=row.player_name||'unknown';
-    const pos=row.position;
-    if(!pos||pos.x==null||pos.y==null)continue;
+    let pos=row.position;
+    // Handle old format: {x: "-21", y: "-141"} as string keys
+    if(!pos||pos.x==null){
+      if(row.x!=null&&row.y!=null){
+        pos={x:parseFloat(row.x),y:parseFloat(row.y)};
+      }else{continue;}
+    }
     if(!positions[name]||(row.timestamp>positions[name].timestamp)){
-      positions[name]={x:pos.x,y:pos.y,timestamp:row.timestamp};
+      positions[name]={x:parseFloat(pos.x),y:parseFloat(pos.y),timestamp:row.timestamp};
     }
   }
   
