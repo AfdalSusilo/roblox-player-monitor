@@ -135,8 +135,36 @@ function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.a
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
 function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
-function exCSV(){if(S.tab==='npc')return;const d=grd();if(!d.length)return;const cs=S.tab==='behavior'?['created_at','player_name','position_history']:Object.keys(d[0]).filter(c=>c!=='id');dl('export_'+S.tab+'.csv',cs.join(',')+'\n'+d.map(r=>cs.map(c=>'"'+String(r[c]||'').replace(/"/g,'""')+'"').join(',')).join('\n'),'text/csv');}
-function exJSON(){const d=S.tab==='npc'?S.raw.npc:grd();dl('export_'+S.tab+'.json',JSON.stringify(d,null,2),'application/json');}
+function exCSV(){
+  let data,cols;
+  if(S.tab==='npc'){
+    data=S.raw.npc||[];cols=['created_at','player_name','npc_name','message'];
+  }else if(S.tab==='behavior'){
+    data=S.raw.behavior||[];cols=['created_at','player_name','position_history','behavior_code','section'];
+  }else{
+    data=S.raw.gui||[];cols=['created_at','player_name','ui_element','input_data'];
+  }
+  if(!data.length){alert('Tidak ada data untuk diexport!');return;}
+  const csv=cols.map(fhdr).join(',')+'\n'+data.map(r=>cols.map(c=>{
+    let v=r[c];
+    if(c==='position_history'&&Array.isArray(v)&&v.length){
+      const p=v[v.length-1];
+      return'"('+Math.round(p.x||0)+', '+Math.round(p.y||0)+(p.z!=null?', '+Math.round(p.z):'')+')"';
+    }
+    if(c==='created_at')try{v=new Date(v).toLocaleString('id-ID');}catch(e){}
+    if(typeof v==='object')v=JSON.stringify(v);
+    return'"'+String(v||'').replace(/"/g,'""')+'"';
+  }).join(',')).join('\n');
+  dl('export_'+S.tab+'_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
+}
+function exJSON(){
+  let data;
+  if(S.tab==='npc')data=S.raw.npc||[];
+  else if(S.tab==='behavior')data=S.raw.behavior||[];
+  else data=S.raw.gui||[];
+  if(!data.length){alert('Tidak ada data!');return;}
+  dl('export_'+S.tab+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
+}
 function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
