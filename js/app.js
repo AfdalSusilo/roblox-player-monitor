@@ -21,14 +21,15 @@ function tick(){const n=new Date();if($('#currentDate'))$('#currentDate').textCo
 async function load(){try{const[b,n,g]=await Promise.all([F('/behavior_logs?select=*&order=created_at.desc&limit=5000','/api/behaviors?limit=5000'),F('/npc_interactions?select=*&order=created_at.desc&limit=2000','/api/npc-chats?limit=2000'),F('/gui_logs?select=*&order=created_at.desc&limit=2000','/api/gui-logs?limit=2000')]);S.raw.behavior=b||[];S.raw.npc=n||[];S.raw.gui=g||[];S.backend=SB_ONLINE?'Supabase':'SQLite';console.log(S.backend,S.raw.behavior.length,S.raw.npc.length,S.raw.gui.length);}catch(e){}}
 function disc(){const m=new Map();for(const t of['behavior','gui','npc'])for(const r of S.raw[t]){const id=r.player_id||'?';if(!m.has(id))m.set(id,{id,name:r.player_name||'?',ts:r.created_at||r.timestamp||''});const p=m.get(id);const ts=r.created_at||r.timestamp||'';if(ts>p.ts)p.ts=ts;}S.ap=[...m.values()].sort((a,b)=>b.ts.localeCompare(a.ts));}
 
-function fsetup(){const s=$('#playerFilter');s.innerHTML='<option value="">Semua Player</option>'+S.ap.map(p=>'<option value="'+escA(p.name)+'">'+escH(p.name)+'</option>').join('');s.addEventListener('change',()=>{S.sp=s.value;});$('#dateLive').addEventListener('change',()=>{S.dl=$('#dateLive').value;});const d=new Date().toISOString().slice(0,10);$('#dateLive').value=d;S.dl=d;$('#applyFiltersBtn').addEventListener('click',()=>{S.sp=$('#playerFilter').value;S.dl=$('#dateLive').value;S.p=1;apply();});$('#resetFiltersBtn').addEventListener('click',()=>{$('#playerFilter').value='';S.sp='';S.dl=new Date().toISOString().slice(0,10);$('#dateLive').value=S.dl;S.et='';S.sr='';$('#searchInput').value='';S.p=1;apply();});}
+function fsetup(){const s=$('#playerFilter');s.innerHTML='<option value="">Semua Player</option>'+S.ap.map(p=>'<option value="'+escA(p.name)+'">'+escH(p.name)+'</option>').join('');s.addEventListener('change',()=>{S.sp=s.value;});$('#dateLive').addEventListener('change',()=>{S.dl=$('#dateLive').value;});const d=latestDate();$('#dateLive').value=d;S.dl=d;$('#applyFiltersBtn').addEventListener('click',()=>{S.sp=$('#playerFilter').value;S.dl=$('#dateLive').value;S.p=1;apply();});$('#resetFiltersBtn').addEventListener('click',()=>{$('#playerFilter').value='';S.sp='';S.dl=latestDate();$('#dateLive').value=S.dl;S.et='';S.sr='';$('#searchInput').value='';S.p=1;apply();});}
+function latestDate(){let d='';for(const t of['behavior','gui','npc'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10)||new Date().toISOString().slice(0,10);}
 function tsetup(){$$('.tab').forEach(b=>b.addEventListener('click',()=>sw(b.dataset.tab)));}
 function sw(t){S.tab=t;S.p=1;S.et='';$$('.tab').forEach(b=>b.classList.remove('active'));const btn=document.querySelector('.tab[data-tab="'+t+'"]');if(btn)btn.classList.add('active');$$('.tab-view').forEach(v=>v.classList.remove('active'));const dv=document.getElementById('view-'+t);if(dv)dv.classList.add('active');updET();apply();}
 function ssetup(){$('#searchInput').addEventListener('input',deb(e=>{S.sr=e.target.value.toLowerCase();S.p=1;apply();},250));}
 $('#filterType').addEventListener('change',e=>{S.et=e.target.value;S.p=1;apply();});
 function updET(){if(S.tab==='overview'||S.tab==='npc')return;const d=grd();const s=$('#filterType');s.innerHTML='<option value="">Semua</option>';const k=M[S.tab]?.fk;if(!k)return;[...new Set(d.map(r=>Array.isArray(r[k])?r[k][0]:r[k]).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=String(v).slice(0,40);s.appendChild(o);});}
 function rsetup(){$('#refreshInterval').addEventListener('change',e=>{S.ri=parseInt(e.target.value);clearInterval(S.rt);if(S.ri>0)S.rt=setInterval(ref,5e3);});if(S.ri>0)S.rt=setInterval(ref,5e3);}
-async function ref(){await load();disc();apply();rnote();}
+async function ref(){await load();disc();S.dl=latestDate();if($('#dateLive'))$('#dateLive').value=S.dl;apply();rnote();}
 function rnote(){const n=new Date();['refreshNote','refreshNoteGui'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');});}
 function ltimer(){setInterval(()=>{S.ls++;const m=Math.floor(S.ls/60),s=S.ls%60;if($('#liveTimer'))$('#liveTimer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1e3);}
 
@@ -43,9 +44,9 @@ function ubadge(){if($('#playerCountBadge'))$('#playerCountBadge').textContent=S
 
 // ── TABLE ──
 function rtab(){const m={behavior:{tid:'dataTable',hid:'tableHead',bid:'tableBody',rid:'rowsShown',pid:'pagination'},gui:{tid:'dataTableGui',hid:'tableHeadGui',bid:'tableBodyGui',rid:'rowsShownGui',pid:'paginationGui'}}[S.tab];if(!m)return;const f=S.fil,st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,f.length),pd=f.slice(st,en);if(!f.length){document.getElementById(m.hid).innerHTML='';document.getElementById(m.bid).innerHTML='<tr><td colspan="99" class="empty-state">📭 Tidak ada data</td></tr>';document.getElementById(m.rid).textContent='Menampilkan 0 dari 0';document.getElementById(m.pid).innerHTML='';return;}
-const cols=(S.tab==='behavior'?['created_at','player_name','posisi','behavior_code','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_'))));
+const cols=(S.tab==='behavior'?['created_at','player_name','position_history','behavior_sequence','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_'))));
 document.getElementById(m.hid).innerHTML='<tr>'+cols.map(c=>'<th onclick="sb(\''+c+'\')">'+fhdr(c)+'<span class="sort-arrow">'+(S.sc===c?(S.sd==='asc'?'▲':'▼'):'')+'</span></th>').join('')+'</tr>';
-document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c])+'</td>').join('')+'</tr>').join('');
+document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c],r)+'</td>').join('')+'</tr>').join('');
 document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari '+f.length.toLocaleString();
 const tp=Math.ceil(f.length/S.rpp),pe=document.getElementById(m.pid);if(tp<=1)pe.innerHTML='';else{let h='<button class="page-btn"'+(S.p<=1?' disabled':'')+' onclick="gp('+(S.p-1)+')">‹</button>';for(let i=1;i<=tp;i++)h+='<button class="page-btn'+(i===S.p?' active':'')+'" onclick="gp('+i+')">'+i+'</button>';h+='<button class="page-btn"'+(S.p>=tp?' disabled':'')+' onclick="gp('+(S.p+1)+')">›</button>';pe.innerHTML=h;}}
 
@@ -168,7 +169,7 @@ function exJSON(){
 function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
-function fcell(c,v){
+function fcell(c,v,r){
   if(v==null)return'—';
   if(c==='created_at'||c==='timestamp')try{return new Date(v).toLocaleString('id-ID');}catch(e){return String(v);}
   if(c==='posisi'){
@@ -176,7 +177,16 @@ function fcell(c,v){
     return'—';
   }
   if(c==='position_history'&&Array.isArray(v)&&v.length){const p=v[v.length-1];return'('+Math.round(p.x)+', '+Math.round(p.y)+(p.z!=null?', '+Math.round(p.z):'')+')';}
-  if(c==='behavior_code')return'<span class="badge-code code-'+escA(String(v||'').charAt(0))+'\">'+escH(String(v||'—'))+'</span>';
+  if(c==='behavior_code'||c==='behavior_sequence'){
+    const code=Array.isArray(v)?v[0]:v;
+    return'<span class="badge-code code-'+escA(String(code||'').charAt(0))+'">'+escH(String(code||'—'))+'</span>';
+  }
+  if(c==='section'){
+    // Try direct field first, then from position_history
+    let sec=v||'';
+    if(!sec){const ph=r['position_history'];if(Array.isArray(ph)&&ph.length)sec=ph[ph.length-1].section||'';}
+    return escH(String(sec||'—'));
+  }
   if(c==='input_data'&&typeof v==='string'){try{const j=JSON.parse(v);return j.value||j.section||v.slice(0,50);}catch(e){return v.slice(0,60);}}
   if(Array.isArray(v))return v[0]||'';
   if(typeof v==='object')return JSON.stringify(v).slice(0,50);
