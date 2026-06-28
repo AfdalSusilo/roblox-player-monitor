@@ -154,10 +154,10 @@ function setupFilters() {
 
   $('#dateLive').addEventListener('change', () => { STATE.dateLive = $('#dateLive').value; });
 
-  // Default to the data's date, not today
-  const dataDate = findDataDate();
-  $('#dateLive').value = dataDate;
-  STATE.dateLive = dataDate;
+  // Default to TODAY (bukan data's date) — user bisa pilih tanggal lain
+  const today = new Date().toISOString().slice(0, 10);
+  $('#dateLive').value = today;
+  STATE.dateLive = today;
 
   $('#applyFiltersBtn').addEventListener('click', () => {
     STATE.selectedPlayer = $('#playerFilter').value;
