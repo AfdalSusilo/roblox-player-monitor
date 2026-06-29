@@ -135,7 +135,7 @@ rpl();}
 function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
-function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
+function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
 function exCSV(){
   let data,cols;
   if(S.tab==='npc'){
@@ -167,6 +167,49 @@ function exJSON(){
   dl('export_'+S.tab+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
 }
 function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+
+// ── EXPORT BEHAVIOR SEQUENCE (Overview) ──
+function buildSeqData(){
+  const pl={};
+  for(const r of[...S.raw.behavior]){
+    const n=r.player_name||'?';const pid=r.player_id||'?';
+    if(!pl[n])pl[n]={player_id:pid,player_name:n,total_actions:0,sequence:[],timestamps:[],sections:[]};
+    const code=Array.isArray(r.behavior_sequence)?r.behavior_sequence[0]:(Array.isArray(r.behavior_code)?r.behavior_code[0]:r.behavior_code||'');
+    const ts=r.created_at||r.timestamp||'';
+    let sec=r.section||'';
+    if(!sec&&Array.isArray(r.position_history)&&r.position_history.length)sec=r.position_history[r.position_history.length-1].section||'';
+    if(code){pl[n].sequence.push(code);pl[n].timestamps.push(ts);pl[n].sections.push(sec);pl[n].total_actions++;}
+  }
+  return Object.values(pl).sort((a,b)=>b.total_actions-a.total_actions);
+}
+function exSeqCSV(){
+  const data=buildSeqData();
+  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
+  const cols=['player_name','total_actions','behavior_sequence','timestamps','sections'];
+  const csv=cols.map(c=>'"'+c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())+'"').join(',')+'\n'+
+    data.map(r=>{
+      return[
+        '"'+String(r.player_name).replace(/"/g,'""')+'"',
+        r.total_actions,
+        '"'+r.sequence.join('→')+'"',
+        '"'+r.timestamps.join('; ')+'"',
+        '"'+r.sections.join('; ')+'"'
+      ].join(',');
+    }).join('\n');
+  dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
+}
+function exSeqJSON(){
+  const data=buildSeqData();
+  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
+  const out=data.map(r=>({
+    player_id:r.player_id,player_name:r.player_name,
+    total_actions:r.total_actions,
+    behavior_sequence:r.sequence,
+    sequence_string:r.sequence.join('→'),
+    detail:r.sequence.map((code,i)=>({code,timestamp:r.timestamps[i],section:r.sections[i]}))
+  }));
+  dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(out,null,2),'application/json');
+}
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
 function fcell(c,v,r){
