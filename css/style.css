@@ -307,3 +307,70 @@ tr:last-child td { border-bottom: none; }
   .chat-bubble { max-width: 90%; }
   .overview-panels { grid-template-columns: 1fr; }
 }
+
+/* ===== BEHAVIOR SEQUENCE TAB ===== */
+.sequence-container {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 0 12px 8px;
+}
+.seq-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  transition: all var(--transition);
+}
+.seq-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 16px rgba(88,101,242,.15);
+}
+.seq-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px; flex-wrap: wrap; gap: 6px;
+}
+.seq-header-left { display: flex; align-items: center; gap: 8px; }
+.seq-player { font-weight: 700; font-size: 0.88rem; }
+.seq-count {
+  background: var(--accent); color: #fff;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 0.7rem; font-weight: 600;
+}
+.seq-string {
+  font-size: 0.68rem; color: var(--text2);
+  font-family: monospace; letter-spacing: .5px;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.seq-bar {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; overflow-x: auto;
+  min-height: 44px;
+}
+.seq-step {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 28px; padding: 2px 8px;
+  border-radius: 6px; font-size: 0.76rem; font-weight: 700;
+  text-align: center; flex-shrink: 0;
+  transition: transform .15s;
+}
+.seq-step:hover { transform: scale(1.15); }
+.seq-arrow {
+  color: var(--text2); font-size: 0.85rem;
+  flex-shrink: 0; opacity: 0.5; margin: 0 1px;
+}
+.seq-meta {
+  display: flex; justify-content: space-between;
+  margin-top: 8px; font-size: 0.7rem; color: var(--text2);
+  flex-wrap: wrap; gap: 4px;
+}
+.seq-refresh-info {
+  display: flex; align-items: center; gap: 8px;
+}
+.seq-timer-badge {
+  background: var(--surface2); color: var(--text2);
+  padding: 3px 8px; border-radius: 8px;
+  font-size: 0.68rem; font-weight: 600;
+  font-family: monospace;
+}

@@ -63,6 +63,7 @@
       <div class="toolbar" id="toolbar">
         <div class="tabs" id="tabs">
           <button class="tab active" data-tab="behavior">🏃 Behavior</button>
+          <button class="tab" data-tab="sequence">🔀 Urutan Behavior</button>
           <button class="tab" data-tab="npc">💬 Chat NPC</button>
           <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
           <button class="tab" data-tab="overview">📊 Overview</button>
@@ -99,6 +100,28 @@
                 <option value="100">100</option><option value="200">200</option>
               </select>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BEHAVIOR SEQUENCE TAB -->
+      <div class="tab-view" id="view-sequence">
+        <div class="table-container">
+          <div class="table-info">
+            <span id="seqCount">0 pemain dengan behavior sequence</span>
+            <div class="seq-refresh-info">
+              <span class="seq-timer-badge" id="seqTimerBadge">⟳ 60s</span>
+              <div class="export-group">
+                <button id="exportSeqCSV2" class="btn btn-outline btn-sm" title="Export behavior sequence">📥 CSV</button>
+                <button id="exportSeqJSON2" class="btn btn-outline btn-sm" title="Export behavior sequence">📋 JSON</button>
+              </div>
+            </div>
+          </div>
+          <div class="sequence-container" id="sequenceContainer">
+            <div class="empty-state">🔀 Belum ada data behavior sequence</div>
+          </div>
+          <div class="table-info bottom">
+            <span id="seqLastUpdate">Auto-refresh setiap 1 menit</span>
           </div>
         </div>
       </div>
