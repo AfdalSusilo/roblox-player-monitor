@@ -209,7 +209,7 @@ rpl();}
 function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
-function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
+function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
 function exCSV(){
   let data,cols;
   if(S.tab==='npc'){
@@ -244,7 +244,7 @@ function exJSON(){
 }
 function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
-// ── EXPORT BEHAVIOR SEQUENCE (Overview) ──
+// ── EXPORT BEHAVIOR SEQUENCE (Visual Format) ──
 function buildSeqData(){
   const pl={};
   for(const r of[...S.raw.behavior]){
@@ -258,33 +258,130 @@ function buildSeqData(){
   }
   return Object.values(pl).sort((a,b)=>b.total_actions-a.total_actions);
 }
+function dedupSequence(seq){
+  // Reverse: lama→baru, lalu deduplicate consecutive
+  const rev=[...seq].reverse();
+  const result=[];let prev='',count=0;
+  for(const code of rev){
+    if(code===prev){count++;}
+    else{if(prev)result.push({code,count});prev=code;count=1;}
+  }
+  if(prev)result.push({code:prev,count});
+  return result;
+}
+function seqToString(deduped){
+  return deduped.map(item=>item.count>1?item.code+'×'+item.count:item.code).join(' → ');
+}
+function seqToSummary(seq){
+  const counts={};
+  for(const c of seq)counts[c]=(counts[c]||0)+1;
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>c+':'+n).join(', ');
+}
 function exSeqCSV(){
   const data=buildSeqData();
   if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
-  const cols=['player_name','total_actions','behavior_sequence','timestamps','sections'];
-  const csv=cols.map(c=>'"'+c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())+'"').join(',')+'\n'+
+  const cols=['Player Name','Total Aksi','Urutan Behavior (Lama→Baru)','Ringkasan','Section','Aktivitas Terakhir'];
+  const csv=cols.map(c=>'"'+c+'"').join(',')+'\n'+
     data.map(r=>{
+      const deduped=dedupSequence(r.sequence);
+      const seqStr=seqToString(deduped);
+      const summary=seqToSummary(r.sequence);
+      const sections=[...new Set(r.sections.filter(Boolean))].join(', ');
+      const lastTs=r.timestamps.length?r.timestamps[r.timestamps.length-1]:'';
       return[
         '"'+String(r.player_name).replace(/"/g,'""')+'"',
         r.total_actions,
-        '"'+r.sequence.join('→')+'"',
-        '"'+r.timestamps.join('; ')+'"',
-        '"'+r.sections.join('; ')+'"'
+        '"'+seqStr+'"',
+        '"'+summary+'"',
+        '"'+sections+'"',
+        '"'+lastTs+'"'
       ].join(',');
     }).join('\n');
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
 }
 function exSeqJSON(){
   const data=buildSeqData();
-  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
-  const out=data.map(r=>({
-    player_id:r.player_id,player_name:r.player_name,
-    total_actions:r.total_actions,
-    behavior_sequence:r.sequence,
-    sequence_string:r.sequence.join('→'),
-    detail:r.sequence.map((code,i)=>({code,timestamp:r.timestamps[i],section:r.sections[i]}))
-  }));
+  if(!data.length){alert('Tidak ada data behavior!');return;}
+  const out=data.map(r=>{
+    const deduped=dedupSequence(r.sequence);
+    return{
+      player_id:r.player_id,player_name:r.player_name,
+      total_actions:r.total_actions,
+      urutan_visual:seqToString(deduped),
+      ringkasan:seqToSummary(r.sequence),
+      behavior_sequence_full:r.sequence,
+      sections:[...new Set(r.sections.filter(Boolean))],
+      detail:r.sequence.map((code,i)=>({code,timestamp:r.timestamps[i],section:r.sections[i]}))
+    };
+  });
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(out,null,2),'application/json');
+}
+function exSeqDOCX(){
+  const data=buildSeqData();
+  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
+  
+  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  
+  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8">
+<style>
+body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
+h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
+h2{font-size:12pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
+.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px}
+th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
+td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
+tr:nth-child(even){background:#f8f9fa}
+.seq-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-weight:bold;font-size:9pt;margin:1px}
+.code-E{background:#d4edda;color:#155724}.code-R{background:#cce5ff;color:#004085}
+.code-A{background:#fff3cd;color:#856404}.code-C{background:#d4edda;color:#155724}
+.code-I{background:#f8d7da;color:#721c24}.code-F{background:#e2d5f1;color:#5b2c8b}
+.code-Q{background:#d1ecf1;color:#0c5460}.code-S{background:#e2e3e5;color:#383d41}
+.summary{font-size:9pt;color:#666}
+.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
+</style></head><body>
+<h1>📊 Behavior Sequence Report</h1>
+<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
+
+<h2>📋 Ringkasan Per Pemain</h2>
+<table>
+<tr><th>No</th><th>Player</th><th>Total Aksi</th><th>Urutan Behavior</th><th>Ringkasan</th><th>Section</th></tr>`;
+
+  data.forEach((r,i)=>{
+    const deduped=dedupSequence(r.sequence);
+    const seqHTML=deduped.map(item=>{
+      const cls='code-'+item.code.charAt(0);
+      const label=item.count>1?item.code+'×'+item.count:item.code;
+      return'<span class="seq-badge '+cls+'">'+label+'</span>';
+    }).join(' → ');
+    
+    const summary=seqToSummary(r.sequence);
+    const sections=[...new Set(r.sections.filter(Boolean))].join(', ')||'—';
+    
+    html+='<tr><td>'+(i+1)+'</td><td><b>'+r.player_name+'</b></td><td>'+r.total_actions+
+      '</td><td>'+seqHTML+'</td><td class="summary">'+summary+'</td><td>'+sections+'</td></tr>';
+  });
+
+  html+=`</table>
+
+<h2>📖 Kode Behavior (Wang et al., 2025)</h2>
+<table>
+<tr><th>Code</th><th>Nama</th><th>Deskripsi</th></tr>
+<tr><td><span class="seq-badge code-E">E</span></td><td>Explore</td><td>Pemain menjelajahi lingkungan Desa Sukamaju</td></tr>
+<tr><td><span class="seq-badge code-R">R</span></td><td>Read</td><td>Pemain membaca/membuka modul CPS</td></tr>
+<tr><td><span class="seq-badge code-A">A</span></td><td>Answer</td><td>Pemain mengirim jawaban pada tahap CPS</td></tr>
+<tr><td><span class="seq-badge code-C">C</span></td><td>Correct</td><td>Jawaban valid — keyword ditemukan</td></tr>
+<tr><td><span class="seq-badge code-I">I</span></td><td>Incorrect</td><td>Jawaban tidak valid — keyword tidak ditemukan</td></tr>
+<tr><td><span class="seq-badge code-F">F</span></td><td>Feedback</td><td>Sistem menampilkan hints/feedback</td></tr>
+<tr><td><span class="seq-badge code-Q">Q</span></td><td>Query</td><td>Pemain bertanya ke NPC</td></tr>
+<tr><td><span class="seq-badge code-S">S</span></td><td>Skip</td><td>Pemain melewati tahap CPS</td></tr>
+</table>
+
+<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: Supabase + SQLite | ${data.length} pemain</p>
+</body></html>`;
+
+  dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
 }
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
