@@ -245,21 +245,14 @@ function exJSON(){
 function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
 // ── EXPORT BEHAVIOR SEQUENCE (Visual Format) ──
-function buildSeqData(){
-  const pl={};
-  for(const r of[...S.raw.behavior]){
-    const n=r.player_name||'?';const pid=r.player_id||'?';
-    if(!pl[n])pl[n]={player_id:pid,player_name:n,total_actions:0,sequence:[],timestamps:[],sections:[]};
-    const code=Array.isArray(r.behavior_sequence)?r.behavior_sequence[0]:(Array.isArray(r.behavior_code)?r.behavior_code[0]:r.behavior_code||'');
-    const ts=r.created_at||r.timestamp||'';
-    let sec=r.section||'';
-    if(!sec&&Array.isArray(r.position_history)&&r.position_history.length)sec=r.position_history[r.position_history.length-1].section||'';
-    if(code){pl[n].sequence.push(code);pl[n].timestamps.push(ts);pl[n].sections.push(sec);pl[n].total_actions++;}
-  }
-  return Object.values(pl).sort((a,b)=>b.total_actions-a.total_actions);
+function getFilteredSeqData(){
+  // Pakai data yang SAMA dengan dashboard (buildPlayerSeq + filter)
+  let list=buildPlayerSeq();
+  if(S.sp)list=list.filter(p=>p.player_name===S.sp);
+  if(S.dl)list=list.filter(p=>p.lastTs.slice(0,10)===S.dl);
+  return list;
 }
 function dedupSequence(seq){
-  // Reverse: lama→baru, lalu deduplicate consecutive
   const rev=[...seq].reverse();
   const result=[];let prev='',count=0;
   for(const code of rev){
@@ -278,7 +271,7 @@ function seqToSummary(seq){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>c+':'+n).join(', ');
 }
 function exSeqCSV(){
-  const data=buildSeqData();
+  const data=getFilteredSeqData();
   if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
   const cols=['Player Name','Total Aksi','Urutan Behavior (Lama→Baru)','Ringkasan','Section','Aktivitas Terakhir'];
   const csv=cols.map(c=>'"'+c+'"').join(',')+'\n'+
@@ -287,7 +280,7 @@ function exSeqCSV(){
       const seqStr=seqToString(deduped);
       const summary=seqToSummary(r.sequence);
       const sections=[...new Set(r.sections.filter(Boolean))].join(', ');
-      const lastTs=r.timestamps.length?r.timestamps[r.timestamps.length-1]:'';
+      const lastTs=r.lastTs||'';
       return[
         '"'+String(r.player_name).replace(/"/g,'""')+'"',
         r.total_actions,
@@ -300,7 +293,7 @@ function exSeqCSV(){
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
 }
 function exSeqJSON(){
-  const data=buildSeqData();
+  const data=getFilteredSeqData();
   if(!data.length){alert('Tidak ada data behavior!');return;}
   const out=data.map(r=>{
     const deduped=dedupSequence(r.sequence);
@@ -317,7 +310,7 @@ function exSeqJSON(){
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(out,null,2),'application/json');
 }
 function exSeqDOCX(){
-  const data=buildSeqData();
+  const data=getFilteredSeqData();
   if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
   
   const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
