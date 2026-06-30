@@ -250,6 +250,12 @@ function getFilteredSeqData(){
   let list=buildPlayerSeq();
   if(S.sp)list=list.filter(p=>p.player_name===S.sp);
   if(S.dl)list=list.filter(p=>p.lastTs.slice(0,10)===S.dl);
+  console.log('[Export] Data:',list.length,'players');
+  list.forEach(p=>{
+    const counts={};
+    for(const c of p.sequence)counts[c]=(counts[c]||0)+1;
+    console.log(`[Export] ${p.player_name}: ${p.total_actions} aksi →`,counts);
+  });
   return list;
 }
 function dedupSequence(seq){
