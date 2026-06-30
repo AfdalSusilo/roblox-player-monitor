@@ -90,18 +90,35 @@ function rseq(){
   if($('#seqCount'))$('#seqCount').textContent=list.length+' pemain dengan behavior sequence';
   if(!list.length){container.innerHTML='<div class="empty-state">🔀 Belum ada data behavior sequence</div>';return;}
   container.innerHTML=list.map(p=>{
-    const steps=p.sequence.map((code,i)=>{
-      const cls='code-'+String(code).charAt(0);
-      return'<span class="seq-step '+cls+'" title="'+escA(p.timestamps[i]||'')+'">'+escH(String(code))+'</span>';
+    // Deduplicate consecutive codes: E,E,E,E,R,A → E(×4),R,A
+    const deduped=[];
+    let prev='',count=0;
+    for(const code of p.sequence){
+      if(code===prev){count++;}
+      else{if(prev)deduped.push({code:prev,count});prev=code;count=1;}
+    }
+    if(prev)deduped.push({code:prev,count});
+    
+    const steps=deduped.map(item=>{
+      const cls='code-'+String(item.code).charAt(0);
+      const label=item.count>1?String(item.code)+'×'+item.count:String(item.code);
+      return'<span class="seq-step '+cls+'">'+escH(label)+'</span>';
     }).join('<span class="seq-arrow">→</span>');
+    
     const sections=[...new Set(p.sections.filter(Boolean))];
     const lastTime=p.lastTs?new Date(p.lastTs).toLocaleTimeString('id-ID'):'—';
-    const seqStr=p.sequence.join('→');
+    const seqStr=p.sequence.slice(-20).join('→')+(p.sequence.length>20?'...':'');
+    
+    // Count per code
+    const codeCounts={};
+    for(const c of p.sequence)codeCounts[c]=(codeCounts[c]||0)+1;
+    const summary=Object.entries(codeCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>c+':'+n).join(' ');
+    
     return'<div class="seq-card">'+
       '<div class="seq-header">'+
         '<div class="seq-header-left"><span class="seq-player">👤 '+escH(p.player_name)+'</span>'+
         '<span class="seq-count">'+p.total_actions+' aksi</span></div>'+
-        '<span class="seq-string" title="Urutan lengkap">'+escH(seqStr)+'</span>'+
+        '<span class="seq-string" title="Summary">'+escH(summary)+'</span>'+
       '</div>'+
       '<div class="seq-bar">'+steps+'</div>'+
       '<div class="seq-meta">'+
