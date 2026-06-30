@@ -90,10 +90,11 @@ function rseq(){
   if($('#seqCount'))$('#seqCount').textContent=list.length+' pemain dengan behavior sequence';
   if(!list.length){container.innerHTML='<div class="empty-state">🔀 Belum ada data behavior sequence</div>';return;}
   container.innerHTML=list.map(p=>{
-    // Deduplicate consecutive codes: E,E,E,E,R,A → E(×4),R,A
+    // Reverse agar dari LAMA → BARU (kiri = awal, kanan = akhir)
+    const seq=[...p.sequence].reverse();
     const deduped=[];
     let prev='',count=0;
-    for(const code of p.sequence){
+    for(const code of seq){
       if(code===prev){count++;}
       else{if(prev)deduped.push({code:prev,count});prev=code;count=1;}
     }
@@ -107,11 +108,9 @@ function rseq(){
     
     const sections=[...new Set(p.sections.filter(Boolean))];
     const lastTime=p.lastTs?new Date(p.lastTs).toLocaleTimeString('id-ID'):'—';
-    const seqStr=p.sequence.slice(-20).join('→')+(p.sequence.length>20?'...':'');
     
-    // Count per code
     const codeCounts={};
-    for(const c of p.sequence)codeCounts[c]=(codeCounts[c]||0)+1;
+    for(const c of seq)codeCounts[c]=(codeCounts[c]||0)+1;
     const summary=Object.entries(codeCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>c+':'+n).join(' ');
     
     return'<div class="seq-card">'+
