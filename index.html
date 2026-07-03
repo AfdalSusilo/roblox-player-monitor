@@ -74,6 +74,7 @@
           <div class="export-group">
             <button id="exportCSV" class="btn btn-outline btn-sm">📥 CSV</button>
             <button id="exportJSON" class="btn btn-outline btn-sm">📋 JSON</button>
+            <button id="exportBehaviorDOCX" class="btn btn-outline btn-sm">📄 Word</button>
           </div>
         </div>
       </div>
@@ -133,6 +134,8 @@
           <div class="table-info">
             <span id="rowsShownNpc">Menampilkan 0 dari 0</span>
             <div style="display:flex;gap:6px">
+              <button id="exportChatCSV" class="btn btn-outline btn-sm" title="Export chat NPC ke CSV">📥 CSV</button>
+              <button id="exportChatJSON" class="btn btn-outline btn-sm" title="Export chat NPC ke JSON">📋 JSON</button>
               <button id="exportChatDOCX" class="btn btn-outline btn-sm" title="Export percakapan NPC ke Word">📄 Word</button>
             </div>
           </div>
@@ -147,7 +150,11 @@
         <div class="table-container">
           <div class="table-info">
             <span id="rowsShownGui">Menampilkan 0 dari 0</span>
-            <div class="pagination" id="paginationGui"></div>
+            <div style="display:flex;gap:6px">
+              <button id="exportGuiCSV" class="btn btn-outline btn-sm" title="Export GUI logs ke CSV">📥 CSV</button>
+              <button id="exportGuiJSON" class="btn btn-outline btn-sm" title="Export GUI logs ke JSON">📋 JSON</button>
+              <button id="exportGuiDOCX" class="btn btn-outline btn-sm" title="Export GUI logs ke Word">📄 Word</button>
+            </div>
           </div>
           <div class="table-wrapper">
             <table id="dataTableGui">

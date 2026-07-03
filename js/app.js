@@ -223,7 +223,7 @@ rpl();}
 function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
-function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#exportChatDOCX')?.addEventListener('click',exChatDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
+function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#exportChatDOCX')?.addEventListener('click',exChatDOCX);$('#exportChatCSV')?.addEventListener('click',exChatCSV);$('#exportChatJSON')?.addEventListener('click',exChatJSON);$('#exportBehaviorDOCX')?.addEventListener('click',exBehaviorDOCX);$('#exportGuiCSV')?.addEventListener('click',exGuiCSV);$('#exportGuiJSON')?.addEventListener('click',exGuiJSON);$('#exportGuiDOCX')?.addEventListener('click',exGuiDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
 function exCSV(){
   let data,cols;
   if(S.tab==='npc'){
@@ -499,6 +499,168 @@ Data: Supabase | ${c.length} pesan dari ${Object.keys(convos).length} percakapan
 </body></html>`;
   
   dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
+}
+
+// ── CHAT NPC CSV/JSON EXPORT ──
+function getFilteredChatData(){
+  let c=[...S.raw.npc].reverse();
+  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
+  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
+  if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));
+  return c;
+}
+function exChatCSV(){
+  const data=getFilteredChatData();
+  if(!data.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
+  const cols=['created_at','player_name','npc_target','role','message_content','emotion','emotion_confidence','cps_stage','npc_response_type'];
+  let csv=cols.join(',')+'\n';
+  data.forEach(r=>{csv+=cols.map(c=>{let v=r[c]||'';if(typeof v==='string'&&(v.includes(',')||v.includes('"')||v.includes('\n')))v='"'+v.replace(/"/g,'""')+'"';return v;}).join(',')+'\n';});
+  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
+}
+function exChatJSON(){
+  const data=getFilteredChatData();
+  if(!data.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
+  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
+}
+
+// ── BEHAVIOR WORD EXPORT ──
+function exBehaviorDOCX(){
+  let data=[...S.raw.behavior].reverse();
+  if(S.sp)data=data.filter(r=>r.player_name===S.sp);
+  if(S.dl)data=data.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
+  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
+  
+  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  
+  // Group by player
+  const players={};
+  data.forEach(r=>{
+    const n=r.player_name||'?';
+    if(!players[n])players[n]={name:n,records:[],sections:new Set()};
+    players[n].records.push(r);
+    if(r.section)players[n].sections.add(r.section);
+  });
+  
+  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8">
+<style>
+body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
+h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
+h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
+.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px}
+th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
+td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
+tr:nth-child(even){background:#f8f9fa}
+.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
+</style></head><body>
+<h1>🏃 Behavior Log Report</h1>
+<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
+
+<h2>📋 Data Behavior</h2>
+<table>
+<tr><th>No</th><th>Waktu</th><th>Player</th><th>Posisi</th><th>Behavior</th><th>Section</th></tr>`;
+
+  const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,data.length);
+  data.slice(st,en).forEach((r,i)=>{
+    const ts=r.created_at||r.timestamp||'';
+    const time=ts?new Date(ts).toLocaleString('id-ID'):'';
+    const pos=Array.isArray(r.position_history)&&r.position_history.length?'('+Math.round(r.position_history[r.position_history.length-1].x)+', '+Math.round(r.position_history[r.position_history.length-1].y)+')':'—';
+    const behav=Array.isArray(r.behavior_sequence)?r.behavior_sequence.join(' → '):(r.behavior_code||'—');
+    const sec=r.section||'—';
+    html+='<tr><td>'+(i+1)+'</td><td>'+time+'</td><td><b>'+escH(r.player_name||'?')+'</b></td><td>'+pos+'</td><td>'+escH(behav)+'</td><td>'+escH(sec)+'</td></tr>';
+  });
+  
+  html+=`</table>
+
+<h2>📊 Ringkasan Per Pemain</h2>
+<table>
+<tr><th>Player</th><th>Total Records</th><th>Sections</th></tr>`;
+  
+  for(const[n,p]of Object.entries(players)){
+    html+='<tr><td><b>'+escH(n)+'</b></td><td>'+p.records.length+'</td><td>'+escH([...p.sections].join(', ')||'—')+'</td></tr>';
+  }
+  
+  html+=`</table>
+<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: ${data.length} records</p>
+</body></html>`;
+  
+  dl('behavior_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
+}
+
+// ── GUI LOGS CSV/JSON/WORD EXPORT ──
+function getFilteredGuiData(){
+  let c=[...S.raw.gui].reverse();
+  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
+  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
+  if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));
+  return c;
+}
+function exGuiCSV(){
+  const data=getFilteredGuiData();
+  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
+  const cols=['created_at','player_name','ui_element','input_data'];
+  let csv=cols.join(',')+'\n';
+  data.forEach(r=>{csv+=cols.map(c=>{let v=r[c]||'';if(typeof v==='string'&&(v.includes(',')||v.includes('"')))v='"'+v.replace(/"/g,'""')+'"';return v;}).join(',')+'\n';});
+  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
+}
+function exGuiJSON(){
+  const data=getFilteredGuiData();
+  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
+  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
+}
+function exGuiDOCX(){
+  let data=getFilteredGuiData();
+  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
+  
+  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  
+  // Count by UI element
+  const elemCount={};
+  data.forEach(r=>{const el=r.ui_element||'?';elemCount[el]=(elemCount[el]||0)+1;});
+  
+  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8">
+<style>
+body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
+h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
+h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
+.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px}
+th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
+td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
+tr:nth-child(even){background:#f8f9fa}
+.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
+</style></head><body>
+<h1>🖥️ GUI Logs Report</h1>
+<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
+
+<h2>📊 Ringkasan UI Element</h2>
+<table>
+<tr><th>UI Element</th><th>Jumlah Interaksi</th></tr>`;
+  
+  for(const[el,cnt]of Object.entries(elemCount).sort((a,b)=>b[1]-a[1])){
+    html+='<tr><td>'+escH(el)+'</td><td>'+cnt+'</td></tr>';
+  }
+  
+  html+=`</table>
+
+<h2>📋 Detail GUI Logs</h2>
+<table>
+<tr><th>No</th><th>Waktu</th><th>Player</th><th>UI Element</th><th>Input Data</th></tr>`;
+  
+  const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,data.length);
+  data.slice(st,en).forEach((r,i)=>{
+    const ts=r.created_at||r.timestamp||'';
+    const time=ts?new Date(ts).toLocaleString('id-ID'):'';
+    html+='<tr><td>'+(i+1)+'</td><td>'+time+'</td><td><b>'+escH(r.player_name||'?')+'</b></td><td>'+escH(r.ui_element||'—')+'</td><td>'+escH(r.input_data||'—')+'</td></tr>';
+  });
+  
+  html+=`</table>
+<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: ${data.length} GUI interactions</p>
+</body></html>`;
+  
+  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
 }
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
