@@ -51,6 +51,17 @@ document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari
 const tp=Math.ceil(f.length/S.rpp),pe=document.getElementById(m.pid);if(tp<=1)pe.innerHTML='';else{let h='<button class="page-btn"'+(S.p<=1?' disabled':'')+' onclick="gp('+(S.p-1)+')">‹</button>';for(let i=1;i<=tp;i++)h+='<button class="page-btn'+(i===S.p?' active':'')+'" onclick="gp('+i+')">'+i+'</button>';h+='<button class="page-btn"'+(S.p>=tp?' disabled':'')+' onclick="gp('+(S.p+1)+')">›</button>';pe.innerHTML=h;}}
 
 // ── NPC CHAT ──
+function emotionBadge(e){
+  if(!e||e==='—')return'';
+  const m={confusion:'😕',frustration:'😤',joy:'😊',curiosity:'🤔',surprise:'😮',determination:'💪',sadness:'😢',calm:'😌'};
+  const icon=m[e]||'💭';
+  return'<span class="emotion-badge" title="'+escH(e)+'">'+icon+' '+escH(e)+'</span>';
+}
+function cpsBadge(s){
+  if(!s||s==='—')return'';
+  const names={MF:'Mess Finding',DF:'Data Finding',PF:'Problem Finding',IF:'Idea Finding',SF:'Solution Finding',AF:'Acceptance Finding'};
+  return'<span class="cps-badge" title="'+escH(names[s]||s)+'">🎯 '+escH(s)+'</span>';
+}
 function rnpc(){let c=[...S.raw.npc].reverse();if(S.sp)c=c.filter(r=>r.player_name===S.sp);if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));const box=$('#chatLogBox');if(!box)return;if(!c.length){box.innerHTML='<div class="empty-state">💬 Belum ada percakapan</div>';return;}const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,c.length);
 box.innerHTML=c.slice(st,en).map(r=>{
   const ts=r.created_at||r.timestamp||'';const t=ts?new Date(ts).toLocaleTimeString('id-ID'):'';
@@ -59,7 +70,10 @@ box.innerHTML=c.slice(st,en).map(r=>{
   const npc=r.npc_name||'NPC';const role=r.role||(isAI?'assistant':'user');
   const cls=role==='assistant'?'npc':'player';
   const sender=role==='assistant'?'🤖 '+escH(npc):'👤 '+escH(r.player_name||'Player');
-  return'<div class="chat-bubble '+cls+'"><div class="sender">'+sender+'</div><div>'+escH(clean)+'</div><div class="time">'+t+'</div></div>';
+  const emo=role==='user'?emotionBadge(r.emotion):'';
+  const cps=cpsBadge(r.cps_stage);
+  const extras=(emo||cps)?'<div class="chat-extras">'+emo+cps+'</div>':'';
+  return'<div class="chat-bubble '+cls+'"><div class="sender">'+sender+'</div><div>'+escH(clean)+'</div>'+extras+'<div class="time">'+t+'</div></div>';
 }).join('');
 box.scrollTop=box.scrollHeight;
 if($('#rowsShownNpc'))$('#rowsShownNpc').textContent='Menampilkan '+(st+1)+'–'+en+' dari '+c.length.toLocaleString();}
@@ -209,7 +223,7 @@ rpl();}
 function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
-function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
+function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#exportChatDOCX')?.addEventListener('click',exChatDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
 function exCSV(){
   let data,cols;
   if(S.tab==='npc'){
@@ -381,6 +395,110 @@ tr:nth-child(even){background:#f8f9fa}
 </body></html>`;
 
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
+}
+function exChatDOCX(){
+  let c=[...S.raw.npc].reverse();
+  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
+  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
+  if(!c.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
+  
+  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  
+  // Group by player+NPC conversation
+  const convos={};
+  c.forEach(r=>{
+    const key=(r.player_name||'?')+'|'+(r.npc_name||'NPC');
+    if(!convos[key])convos[key]={player:r.player_name||'?',npc:r.npc_name||'NPC',messages:[],emotions:[]};
+    const role=r.role||'user';
+    convos[key].messages.push({role,content:r.message_content||r.message||'',time:r.created_at||r.timestamp||'',emotion:r.emotion||'',cps:r.cps_stage||''});
+    if(r.emotion&&r.emotion!=='—')convos[key].emotions.push(r.emotion);
+  });
+  
+  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8">
+<style>
+body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
+h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
+h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
+h3{font-size:11pt;color:#333;margin:12px 0 6px}
+.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px}
+th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
+td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
+tr:nth-child(even){background:#f8f9fa}
+.msg-user{background:#e3f2fd;border-left:3px solid #2196f3;padding:8px;margin:4px 0;border-radius:4px}
+.msg-npc{background:#e8f5e9;border-left:3px solid #4caf50;padding:8px;margin:4px 0;border-radius:4px}
+.emotion-tag{display:inline-block;background:#fff3cd;color:#856404;padding:1px 8px;border-radius:10px;font-size:9pt;margin:2px}
+.cps-tag{display:inline-block;background:#d1ecf1;color:#0c5460;padding:1px 8px;border-radius:10px;font-size:9pt;margin:2px}
+.summary-box{background:#f8f9fa;border:1px solid #dee2e6;padding:12px;border-radius:6px;margin:8px 0}
+.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
+</style></head><body>
+<h1>💬 Chat NPC Report</h1>
+<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
+
+<h2>📊 Ringkasan Percakapan</h2>
+<table>
+<tr><th>No</th><th>Player</th><th>NPC</th><th>Total Pesan</th><th>Emosi Dominan</th><th>CPS Stage</th></tr>`;
+
+  let i=0;
+  for(const[key,conv]of Object.entries(convos)){
+    i++;
+    // Count emotions
+    const emoCount={};
+    conv.emotions.forEach(e=>{emoCount[e]=(emoCount[e]||0)+1;});
+    const dominant=Object.entries(emoCount).sort((a,b)=>b[1]-a[1])[0];
+    const dominantStr=dominant?dominant[0]+' ('+dominant[1]+'×)':'—';
+    
+    // Get CPS stages
+    const cpsSet=[...new Set(conv.messages.filter(m=>m.cps&&m.cps!=='—').map(m=>m.cps))];
+    const cpsStr=cpsSet.join(', ')||'—';
+    
+    html+='<tr><td>'+i+'</td><td><b>'+escH(conv.player)+'</b></td><td>🤖 '+escH(conv.npc)+'</td><td>'+conv.messages.length+'</td><td>'+escH(dominantStr)+'</td><td>'+escH(cpsStr)+'</td></tr>';
+  }
+  
+  html+=`</table>
+
+<h2>📝 Detail Percakapan</h2>`;
+
+  for(const[key,conv]of Object.entries(convos)){
+    html+='<h3>👤 '+escH(conv.player)+' ↔ 🤖 '+escH(conv.npc)+'</h3>';
+    
+    for(const msg of conv.messages){
+      const cls=msg.role==='assistant'?'msg-npc':'msg-user';
+      const icon=msg.role==='assistant'?'🤖':'👤';
+      const name=msg.role==='assistant'?conv.npc:conv.player;
+      const time=msg.time?new Date(msg.time).toLocaleTimeString('id-ID'):'';
+      const emo=msg.emotion&&msg.emotion!=='—'?'<span class="emotion-tag">💭 '+escH(msg.emotion)+'</span>':'';
+      const cps=msg.cps&&msg.cps!=='—'?'<span class="cps-tag">🎯 '+escH(msg.cps)+'</span>':'';
+      
+      html+='<div class="'+cls+'"><b>'+icon+' '+escH(name)+'</b> <span style="color:#999;font-size:9pt">'+time+'</span><br>'+escH(msg.content);
+      if(emo||cps)html+='<br>'+emo+' '+cps;
+      html+='</div>';
+    }
+  }
+  
+  // Emotion summary
+  const allEmotions={};
+  c.forEach(r=>{if(r.emotion&&r.emotion!=='—')allEmotions[r.emotion]=(allEmotions[r.emotion]||0)+1;});
+  if(Object.keys(allEmotions).length){
+    html+=`<h2>🧠 Analisis Emosi (SENA Framework)</h2>
+<div class="summary-box">`;
+    const emoIcons={confusion:'😕',frustration:'😤',joy:'😊',curiosity:'🤔',surprise:'😮',determination:'💪',sadness:'😢',calm:'😌'};
+    const total=Object.values(allEmotions).reduce((a,b)=>a+b,0);
+    for(const[emo,cnt]of Object.entries(allEmotions).sort((a,b)=>b[1]-a[1])){
+      const pct=Math.round(cnt/total*100);
+      html+=(emoIcons[emo]||'💭')+' <b>'+escH(emo)+'</b>: '+cnt+' ('+pct+'%)<br>';
+    }
+    html+='</div>';
+  }
+  
+  html+=`
+<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>
+Memory-Driven NPC + Emotion-Aware + FS-CPSM Integration<br>
+Data: Supabase | ${c.length} pesan dari ${Object.keys(convos).length} percakapan</p>
+</body></html>`;
+  
+  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
 }
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}

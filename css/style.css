@@ -214,6 +214,19 @@ tr:last-child td { border-bottom: none; }
 }
 .chat-bubble .sender { font-size: 0.64rem; font-weight: 600; opacity: .75; margin-bottom: 2px; }
 .chat-bubble .time { font-size: 0.58rem; opacity: .5; margin-top: 3px; text-align: right; }
+.chat-extras { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.emotion-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(255,193,7,.15); color: #f59e0b;
+  padding: 1px 8px; border-radius: 10px;
+  font-size: 0.6rem; font-weight: 600;
+}
+.cps-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(6,182,212,.12); color: var(--cyan);
+  padding: 1px 8px; border-radius: 10px;
+  font-size: 0.6rem; font-weight: 600;
+}
 
 /* Section badge for GUI */
 .badge-section {
