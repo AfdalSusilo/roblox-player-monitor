@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const SB='https://qbxvttgzxlfjockyrxne.supabase.co/rest/v1';
 const SK='eyJhbG...5HW0';
 const API='https://laser-cakes-pennsylvania-pike.trycloudflare.com';
-const H={apikey:SK,Aut...arer '+SK};
+const H={apikey:SK,Authorization:'Bearer '+SK};
 
 let SB_ONLINE=true;
 async function F(endpoint,fallback){
