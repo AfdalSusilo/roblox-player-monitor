@@ -402,3 +402,44 @@ function deb(fn,ms){let t;return function(...args){clearTimeout(t);t=setTimeout(
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function escA(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 init();
+
+// ── WORD EXPORT FOR ALL TABS ──
+function exDOCX(){
+  let data,cols,title;
+  if(S.tab==='behavior'){
+    data=S.raw.behavior||[];cols=['created_at','player_name','behavior_sequence','section'];title='Behavior Logs';
+  }else if(S.tab==='npc'){
+    data=S.raw.npc||[];cols=['created_at','player_name','npc_name','message'];title='NPC Interactions';
+  }else if(S.tab==='feedback'){
+    data=S.raw.feedback||[];cols=['created_at','player_name','frame','feedback_type','player_answer','feedback_message','is_correct'];title='Feedback Logs';
+  }else{
+    data=S.raw.gui||[];cols=['created_at','player_name','ui_element','input_data'];title='GUI Logs';
+  }
+  if(!data.length){alert('Tidak ada data untuk diexport!');return;}
+  
+  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>${title}</title>
+<style>body{font-family:Arial,sans-serif;font-size:11px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px;text-align:left}th{background:#f5f5f5;font-weight:bold}</style>
+</head><body>
+<h2>${title} - Simulasi Banjir Desa Sukamaju</h2>
+<p>Exported: ${new Date().toLocaleString('id-ID')} | Records: ${data.length}</p>
+<table><tr>${cols.map(c=>'<th>'+fhdr(c)+'</th>').join('')}</tr>`;
+  
+  for(const r of data){
+    html+='<tr>'+cols.map(c=>{
+      let v=r[c]||'';
+      if(Array.isArray(v))v=v.join(', ');
+      if(typeof v==='object')v=JSON.stringify(v);
+      if(c==='created_at')try{v=new Date(v).toLocaleString('id-ID');}catch(e){}
+      return '<td>'+String(v).replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</td>';
+    }).join('')+'</tr>';
+  }
+  html+='</table></body></html>';
+  dl(S.tab+'_export_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
+}
+
+// Connect Word export buttons
+document.addEventListener('DOMContentLoaded',function(){
+  const btn=$('#exportBehaviorDOCX');
+  if(btn)btn.addEventListener('click',exDOCX);
+});

@@ -285,7 +285,7 @@ tr:last-child td { border-bottom: none; }
 
 /* ===== OVERVIEW PANELS ===== */
 .overview-panels {
-  display: grid; grid-template-columns: 2fr 1fr;
+  display: grid; grid-template-columns: 1fr;
   gap: 10px; padding: 10px 12px; flex: 1; overflow: auto;
 }
 .overview-panels .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
