@@ -1,7 +1,7 @@
 /* Simulasi Banjir — Dashboard v5 (Supabase + SQLite fallback + Feedback) */
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const SB='https://qbxvttgzxlfjockyrxne.supabase.co/rest/v1';
-const SK='eyJhbG...5HW0';
+const SK='sb_publishable_0hLvs4Q3CeNj9wQayNRKSA_JKdVgyPv';
 const API='https://laser-cakes-pennsylvania-pike.trycloudflare.com';
 const H={apikey:SK,Authorization:'Bearer '+SK};
 
