@@ -17,7 +17,7 @@ async function F(endpoint,fallback){
 let _cache={data:null,ts:0};
 const CACHE_TTL=10000; // 10 seconds
 const S={tab:'behavior',raw:{behavior:[],gui:[],npc:[],feedback:[]},fil:[],ap:[],sp:'',dl:'',et:'',sr:'',p:1,rpp:50,sc:null,sd:'asc',ri:15,rt:null,ls:0,backend:'Supabase'};
-const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},feedback:{fk:'section'},overview:{fk:null}};
+const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},feedback:{fk:'frame'},overview:{fk:null}};
 
 async function init(){tick();setInterval(tick,1e3);await load();disc();fsetup();tsetup();ssetup();esetup();rsetup();ltimer();seqTimerSetup();sw('behavior')}
 function tick(){const n=new Date();if($('#currentDate'))$('#currentDate').textContent=n.toLocaleDateString('id-ID',{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});if($('#footerUpdate'))$('#footerUpdate').textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');}
@@ -79,7 +79,7 @@ function rtab(){
   }
   const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,f.length),pd=f.slice(st,en);
   if(!f.length){document.getElementById(m.hid).innerHTML='';document.getElementById(m.bid).innerHTML='<tr><td colspan="99" class="empty-state">📭 Tidak ada data</td></tr>';document.getElementById(m.rid).textContent='Menampilkan 0 dari 0';document.getElementById(m.pid).innerHTML='';return;}
-  const cols=(S.tab==='behavior'?['created_at','player_name','position_history','behavior_sequence','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:(S.tab==='feedback'?['created_at','player_name','section','hint_type','hint_message','player_answer']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_')))));
+  const cols=(S.tab==='behavior'?['created_at','player_name','position_history','behavior_sequence','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:(S.tab==='feedback'?['created_at','player_name','frame','feedback_type','player_answer','feedback_message','is_correct','attempt_count']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_')))));
   document.getElementById(m.hid).innerHTML='<tr>'+cols.map(c=>'<th onclick="sb(\''+c+'\')">'+fhdr(c)+'<span class="sort-arrow">'+(S.sc===c?(S.sd==='asc'?'▲':'▼'):'')+'</span></th>').join('')+'</tr>';
   document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c],r)+'</td>').join('')+'</tr>').join('');
   document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari '+f.length.toLocaleString();
