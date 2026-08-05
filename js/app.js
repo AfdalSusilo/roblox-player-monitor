@@ -12,14 +12,14 @@ async function F(endpoint,fallback){
   return [];
 }
 
-const S={tab:'behavior',raw:{behavior:[],gui:[],npc:[]},fil:[],ap:[],sp:'',dl:'',et:'',sr:'',p:1,rpp:50,sc:null,sd:'asc',ri:15,rt:null,ls:0,backend:'Supabase'};
-const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},overview:{fk:null}};
+const S={tab:'behavior',raw:{behavior:[],gui:[],npc:[],feedback:[]},fil:[],ap:[],sp:'',dl:'',et:'',sr:'',p:1,rpp:50,sc:null,sd:'asc',ri:15,rt:null,ls:0,backend:'Supabase'};
+const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'},feedback:{fk:'section'},overview:{fk:null}};
 
 async function init(){tick();setInterval(tick,1e3);await load();disc();fsetup();tsetup();ssetup();esetup();rsetup();ltimer();seqTimerSetup();sw('behavior')}
 function tick(){const n=new Date();if($('#currentDate'))$('#currentDate').textContent=n.toLocaleDateString('id-ID',{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});if($('#footerUpdate'))$('#footerUpdate').textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');}
 
-async function load(){try{const[b,n,g]=await Promise.all([F('/behavior_logs?select=*&order=created_at.desc&limit=5000','/api/behaviors?limit=5000'),F('/npc_interactions?select=*&order=created_at.desc&limit=2000','/api/npc-chats?limit=2000'),F('/gui_logs?select=*&order=created_at.desc&limit=2000','/api/gui-logs?limit=2000')]);S.raw.behavior=b||[];S.raw.npc=n||[];S.raw.gui=g||[];S.backend=SB_ONLINE?'Supabase':'SQLite';console.log(S.backend,S.raw.behavior.length,S.raw.npc.length,S.raw.gui.length);}catch(e){}}
-function disc(){const m=new Map();for(const t of['behavior','gui','npc'])for(const r of S.raw[t]){const id=r.player_id||'?';if(!m.has(id))m.set(id,{id,name:r.player_name||'?',ts:r.created_at||r.timestamp||''});const p=m.get(id);const ts=r.created_at||r.timestamp||'';if(ts>p.ts)p.ts=ts;}S.ap=[...m.values()].sort((a,b)=>b.ts.localeCompare(a.ts));}
+async function load(){try{const[b,n,g]=await Promise.all([F('/behavior_logs?select=*&order=created_at.desc&limit=5000','/api/behaviors?limit=5000'),F('/npc_interactions?select=*&order=created_at.desc&limit=2000','/api/npc-chats?limit=2000'),F('/gui_logs?select=*&order=created_at.desc&limit=5000','/api/gui-logs?limit=5000')]);S.raw.behavior=b||[];S.raw.npc=n||[];S.raw.gui=g||[];S.raw.feedback=(g||[]).filter(r=>{const e=(r.ui_element||'').toLowerCase();return e.includes('feedback')||e.includes('prompt')||e.includes('answer')||e.includes('achievement')||e.includes('scaffold')||e.includes('_submit');}).map(r=>{let fd={};try{fd=JSON.parse(r.input_data||'{}')}catch(e){}return{...r,frame:fd.frame||'',feedback_type:fd.feedback_type||r.ui_element||'',player_answer:fd.player_answer||'',feedback_message:fd.feedback_message||r.input_data||'',is_correct:fd.is_correct||false,attempt_count:fd.attempt_count||0};});S.backend=SB_ONLINE?'Supabase':'SQLite';console.log(S.backend,'behavior:'+S.raw.behavior.length,'npc:'+S.raw.npc.length,'gui:'+S.raw.gui.length,'feedback:'+S.raw.feedback.length);}catch(e){console.error('Load error:',e);}}
+function disc(){const m=new Map();for(const t of['behavior','gui','npc','feedback'])for(const r of S.raw[t]){const id=r.player_id||'?';if(!m.has(id))m.set(id,{id,name:r.player_name||'?',ts:r.created_at||r.timestamp||''});const p=m.get(id);const ts=r.created_at||r.timestamp||'';if(ts>p.ts)p.ts=ts;}S.ap=[...m.values()].sort((a,b)=>b.ts.localeCompare(a.ts));}
 
 function fsetup(){const s=$('#playerFilter');s.innerHTML='<option value="">Semua Player</option>'+S.ap.map(p=>'<option value="'+escA(p.name)+'">'+escH(p.name)+'</option>').join('');s.addEventListener('change',()=>{S.sp=s.value;});$('#dateLive').addEventListener('change',()=>{S.dl=$('#dateLive').value;});const d=latestDate();$('#dateLive').value=d;S.dl=d;$('#applyFiltersBtn').addEventListener('click',()=>{S.sp=$('#playerFilter').value;S.dl=$('#dateLive').value;S.p=1;apply();});$('#resetFiltersBtn').addEventListener('click',()=>{$('#playerFilter').value='';S.sp='';S.dl=latestDate();$('#dateLive').value=S.dl;S.et='';S.sr='';$('#searchInput').value='';S.p=1;apply();});}
 function latestDate(){let d='';for(const t of['behavior','gui','npc'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10);}
@@ -34,7 +34,8 @@ function rnote(){const n=new Date();['refreshNote','refreshNoteGui'].forEach(id=
 function ltimer(){setInterval(()=>{S.ls++;const m=Math.floor(S.ls/60),s=S.ls%60;if($('#liveTimer'))$('#liveTimer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1e3);}
 
 function grd(){if(S.tab==='overview'||S.tab==='npc'||S.tab==='sequence')return[];return S.raw[S.tab]||[];}
-function apply(){if(S.tab==='overview'){S.fil=[];rall();return;}if(S.tab==='npc'){rall();return;}if(S.tab==='sequence'){rall();return;}let d=[...grd()];if(S.sp)d=d.filter(r=>r.player_name===S.sp);if(S.dl)d=d.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.et){const k=M[S.tab]?.fk;if(k)d=d.filter(r=>{const v=r[k];return Array.isArray(v)?v[0]===S.et:v===S.et;});}if(S.sr)d=d.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));S.fil=d;rall();}
+function grd(){if(S.tab==='overview'||S.tab==='npc'||S.tab==='sequence'||S.tab==='feedback')return[];return S.raw[S.tab]||[];}
+function apply(){if(S.tab==='overview'){S.fil=[];rall();return;}if(S.tab==='npc'){rall();return;}if(S.tab==='sequence'){rall();return;}if(S.tab==='feedback'){S.fil=[];rall();return;}let d=[...grd()];if(S.sp)d=d.filter(r=>r.player_name===S.sp);if(S.dl)d=d.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.et){const k=M[S.tab]?.fk;if(k)d=d.filter(r=>{const v=r[k];return Array.isArray(v)?v[0]===S.et:v===S.et;});}if(S.sr)d=d.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));S.fil=d;rall();}
 function sb(c){if(S.sc===c)S.sd=S.sd==='asc'?'desc':'asc';else{S.sc=c;S.sd='asc';}apply();}
 function gp(p){S.p=p;apply();}
 
@@ -231,6 +232,8 @@ function exCSV(){
     data=S.raw.npc||[];cols=['created_at','player_name','npc_name','message'];
   }else if(S.tab==='behavior'){
     data=S.raw.behavior||[];cols=['created_at','player_name','position_history','behavior_code','behavior_sequence','section'];
+  }else if(S.tab==='feedback'){
+    data=S.raw.feedback||[];cols=['created_at','player_name','frame','feedback_type','feedback_message','player_answer','is_correct','attempt_count'];
   }else{
     data=S.raw.gui||[];cols=['created_at','player_name','ui_element','input_data'];
   }
@@ -253,6 +256,7 @@ function exJSON(){
   let data;
   if(S.tab==='npc')data=S.raw.npc||[];
   else if(S.tab==='behavior')data=S.raw.behavior||[];
+  else if(S.tab==='feedback')data=S.raw.feedback||[];
   else data=S.raw.gui||[];
   if(!data.length){alert('Tidak ada data!');return;}
   dl('export_'+S.tab+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
@@ -716,3 +720,5 @@ function deb(fn,ms){let t;return function(...args){clearTimeout(t);t=setTimeout(
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function escA(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 init();
+function latestDate(){let d='';for(const t of['behavior','gui','npc','feedback'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10);}
+function ustats(){$('#statChats').textContent=(S.raw.npc||[]).length;$('#statMoves').textContent=(S.raw.behavior||[]).length;$('#statGui').textContent=(S.raw.gui||[]).length;$('#statFeedback').textContent=(S.raw.feedback||[]).length;$('#statPlayers').textContent=S.ap.length;}

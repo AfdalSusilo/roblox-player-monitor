@@ -66,6 +66,7 @@
           <button class="tab" data-tab="sequence">🔀 Urutan Behavior</button>
           <button class="tab" data-tab="npc">💬 Chat NPC</button>
           <button class="tab" data-tab="gui">🖥️ GUI Logs</button>
+          <button class="tab" data-tab="feedback">💡 Feedback</button>
           <button class="tab" data-tab="overview">📊 Overview</button>
         </div>
         <div class="toolbar-actions">
@@ -167,8 +168,27 @@
           </div>
         </div>
       </div>
-
+      </div>
       <!-- OVERVIEW TAB -->
+      <!-- FEEDBACK TAB -->
+      <div class="tab-view" id="view-feedback">
+        <div class="table-container">
+          <div class="table-info">
+            <span id="rowsShownFeedback">Menampilkan 0 dari 0</span>
+            <div class="pagination" id="paginationFeedback"></div>
+          </div>
+          <div class="table-wrapper">
+            <table id="dataTableFeedback">
+              <thead id="tableHeadFeedback"></thead>
+              <tbody id="tableBodyFeedback"><tr><td colspan="99" class="loading">⏳ Memuat data…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-info bottom">
+            <span id="refreshNoteFeedback">Data live</span>
+          </div>
+        </div>
+      </div>
+
       <div class="tab-view" id="view-overview">
         <div class="overview-panels">
           <div class="panel panel-double">
@@ -211,6 +231,10 @@
         <div class="stat-card">
           <div class="stat-value" id="statGui">0</div>
           <div class="stat-label">GUI Logs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statFeedback">0</div>
+          <div class="stat-label">Feedback</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="statPlayers">0</div>
