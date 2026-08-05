@@ -1,9 +1,9 @@
-/* Simulasi Banjir — Dashboard v4 (Supabase + SQLite fallback) */
+/* Simulasi Banjir — Dashboard v5 (Supabase + SQLite fallback + Feedback) */
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const SB='https://qbxvttgzxlfjockyrxne.supabase.co/rest/v1';
-const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieHZ0dGd6eGxmam9ja3lyeG5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MjczNzAsImV4cCI6MjA5ODEwMzM3MH0.GiQcsITIxZbCaDn6746Wds-0Cf5IbwH7_xFDtWe5HW0';
+const SK='eyJhbG...5HW0';
 const API='https://laser-cakes-pennsylvania-pike.trycloudflare.com';
-const H={apikey:SK,Authorization:'Bearer '+SK};
+const H={apikey:SK,Aut...arer '+SK};
 
 let SB_ONLINE=true;
 async function F(endpoint,fallback){
@@ -18,11 +18,11 @@ const M={behavior:{fk:'behavior_code'},gui:{fk:'ui_element'},npc:{fk:'npc_name'}
 async function init(){tick();setInterval(tick,1e3);await load();disc();fsetup();tsetup();ssetup();esetup();rsetup();ltimer();seqTimerSetup();sw('behavior')}
 function tick(){const n=new Date();if($('#currentDate'))$('#currentDate').textContent=n.toLocaleDateString('id-ID',{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});if($('#footerUpdate'))$('#footerUpdate').textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');}
 
-async function load(){try{const[b,n,g]=await Promise.all([F('/behavior_logs?select=*&order=created_at.desc&limit=5000','/api/behaviors?limit=5000'),F('/npc_interactions?select=*&order=created_at.desc&limit=2000','/api/npc-chats?limit=2000'),F('/gui_logs?select=*&order=created_at.desc&limit=5000','/api/gui-logs?limit=5000')]);S.raw.behavior=b||[];S.raw.npc=n||[];S.raw.gui=g||[];S.raw.feedback=(g||[]).filter(r=>{const e=(r.ui_element||'').toLowerCase();return e.includes('feedback')||e.includes('prompt')||e.includes('answer')||e.includes('achievement')||e.includes('scaffold')||e.includes('_submit');}).map(r=>{let fd={};try{fd=JSON.parse(r.input_data||'{}')}catch(e){}return{...r,frame:fd.frame||'',feedback_type:fd.feedback_type||r.ui_element||'',player_answer:fd.player_answer||'',feedback_message:fd.feedback_message||r.input_data||'',is_correct:fd.is_correct||false,attempt_count:fd.attempt_count||0};});S.backend=SB_ONLINE?'Supabase':'SQLite';console.log(S.backend,'behavior:'+S.raw.behavior.length,'npc:'+S.raw.npc.length,'gui:'+S.raw.gui.length,'feedback:'+S.raw.feedback.length);}catch(e){console.error('Load error:',e);}}
+async function load(){try{const[b,n,g]=await Promise.all([F('/behavior_logs?select=*&order=created_at.desc&limit=5000','/api/behaviors?limit=5000'),F('/npc_interactions?select=*&order=created_at.desc&limit=2000','/api/npc-chats?limit=2000'),F('/gui_logs?select=*&order=created_at.desc&limit=5000','/api/gui-logs?limit=5000')]);S.raw.behavior=b||[];S.raw.npc=n||[];S.raw.gui=g||[];S.raw.feedback=(g||[]).map(r=>{let fd={};try{fd=JSON.parse(r.input_data||'{}')}catch(e){}return{id:r.id,player_id:r.player_id,player_name:r.player_name,created_at:r.created_at,frame:fd.frame||'',feedback_type:fd.feedback_type||r.ui_element||'',player_answer:fd.player_answer||fd.answer||fd.jawaban||'',feedback_message:fd.feedback_message||'',is_correct:fd.is_correct||false,attempt_count:fd.attempt_count||0,question_num:fd.question||fd.questionNum||0};});S.backend=SB_ONLINE?'Supabase':'SQLite';console.log(S.backend,'behavior:'+S.raw.behavior.length,'npc:'+S.raw.npc.length,'gui:'+S.raw.gui.length,'feedback:'+S.raw.feedback.length);}catch(e){console.error('Load error:',e);}}
 function disc(){const m=new Map();for(const t of['behavior','gui','npc','feedback'])for(const r of S.raw[t]){const id=r.player_id||'?';if(!m.has(id))m.set(id,{id,name:r.player_name||'?',ts:r.created_at||r.timestamp||''});const p=m.get(id);const ts=r.created_at||r.timestamp||'';if(ts>p.ts)p.ts=ts;}S.ap=[...m.values()].sort((a,b)=>b.ts.localeCompare(a.ts));}
 
 function fsetup(){const s=$('#playerFilter');s.innerHTML='<option value="">Semua Player</option>'+S.ap.map(p=>'<option value="'+escA(p.name)+'">'+escH(p.name)+'</option>').join('');s.addEventListener('change',()=>{S.sp=s.value;});$('#dateLive').addEventListener('change',()=>{S.dl=$('#dateLive').value;});const d=latestDate();$('#dateLive').value=d;S.dl=d;$('#applyFiltersBtn').addEventListener('click',()=>{S.sp=$('#playerFilter').value;S.dl=$('#dateLive').value;S.p=1;apply();});$('#resetFiltersBtn').addEventListener('click',()=>{$('#playerFilter').value='';S.sp='';S.dl=latestDate();$('#dateLive').value=S.dl;S.et='';S.sr='';$('#searchInput').value='';S.p=1;apply();});}
-function latestDate(){let d='';for(const t of['behavior','gui','npc'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10);}
+function latestDate(){let d='';for(const t of['behavior','gui','npc','feedback'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10);}
 function tsetup(){$$('.tab').forEach(b=>b.addEventListener('click',()=>sw(b.dataset.tab)));}
 function sw(t){S.tab=t;S.p=1;S.et='';$$('.tab').forEach(b=>b.classList.remove('active'));const btn=document.querySelector('.tab[data-tab="'+t+'"]');if(btn)btn.classList.add('active');$$('.tab-view').forEach(v=>v.classList.remove('active'));const dv=document.getElementById('view-'+t);if(dv)dv.classList.add('active');updET();apply();}
 function ssetup(){$('#searchInput').addEventListener('input',deb(e=>{S.sr=e.target.value.toLowerCase();S.p=1;apply();},250));}
@@ -30,39 +30,46 @@ $('#filterType').addEventListener('change',e=>{S.et=e.target.value;S.p=1;apply()
 function updET(){if(S.tab==='overview'||S.tab==='npc'||S.tab==='sequence')return;const d=grd();const s=$('#filterType');s.innerHTML='<option value="">Semua</option>';const k=M[S.tab]?.fk;if(!k)return;[...new Set(d.map(r=>Array.isArray(r[k])?r[k][0]:r[k]).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=String(v).slice(0,40);s.appendChild(o);});}
 function rsetup(){$('#refreshInterval').addEventListener('change',e=>{S.ri=parseInt(e.target.value);clearInterval(S.rt);if(S.ri>0)S.rt=setInterval(ref,S.ri*1e3);});if(S.ri>0)S.rt=setInterval(ref,S.ri*1e3);}
 async function ref(){await load();disc();S.dl=latestDate();if($('#dateLive'))$('#dateLive').value=S.dl;apply();rnote();}
-function rnote(){const n=new Date();['refreshNote','refreshNoteGui'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');});}
+function rnote(){const n=new Date();['refreshNote','refreshNoteGui','refreshNoteFeedback'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=S.backend+' · '+n.toLocaleTimeString('id-ID');});}
 function ltimer(){setInterval(()=>{S.ls++;const m=Math.floor(S.ls/60),s=S.ls%60;if($('#liveTimer'))$('#liveTimer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1e3);}
 
 function grd(){if(S.tab==='overview'||S.tab==='npc'||S.tab==='sequence')return[];return S.raw[S.tab]||[];}
-function grd(){if(S.tab==='overview'||S.tab==='npc'||S.tab==='sequence'||S.tab==='feedback')return[];return S.raw[S.tab]||[];}
-function apply(){if(S.tab==='overview'){S.fil=[];rall();return;}if(S.tab==='npc'){rall();return;}if(S.tab==='sequence'){rall();return;}if(S.tab==='feedback'){S.fil=[];rall();return;}let d=[...grd()];if(S.sp)d=d.filter(r=>r.player_name===S.sp);if(S.dl)d=d.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.et){const k=M[S.tab]?.fk;if(k)d=d.filter(r=>{const v=r[k];return Array.isArray(v)?v[0]===S.et:v===S.et;});}if(S.sr)d=d.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));S.fil=d;rall();}
+function apply(){if(S.tab==='overview'){S.fil=[];rall();return;}if(S.tab==='npc'){rall();return;}if(S.tab==='sequence'){rall();return;}if(S.tab==='feedback'){rall();return;}let d=[...grd()];if(S.sp)d=d.filter(r=>r.player_name===S.sp);if(S.dl)d=d.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.et){const k=M[S.tab]?.fk;if(k)d=d.filter(r=>{const v=r[k];return Array.isArray(v)?v[0]===S.et:v===S.et;});}if(S.sr)d=d.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));S.fil=d;rall();}
 function sb(c){if(S.sc===c)S.sd=S.sd==='asc'?'desc':'asc';else{S.sc=c;S.sd='asc';}apply();}
 function gp(p){S.p=p;apply();}
 
 function rall(){ustats();ubadge();rnote();if(S.tab==='overview')rov();else if(S.tab==='npc')rnpc();else if(S.tab==='sequence')rseq();else rtab();dmap();}
-function ustats(){$('#statChats').textContent=(S.raw.npc||[]).length;$('#statMoves').textContent=(S.raw.behavior||[]).length;$('#statGui').textContent=(S.raw.gui||[]).length;$('#statPlayers').textContent=S.ap.length;}
+function ustats(){$('#statChats').textContent=(S.raw.npc||[]).length;$('#statMoves').textContent=(S.raw.behavior||[]).length;$('#statGui').textContent=(S.raw.gui||[]).length;$('#statFeedback').textContent=(S.raw.feedback||[]).length;$('#statPlayers').textContent=S.ap.length;}
 function ubadge(){if($('#playerCountBadge'))$('#playerCountBadge').textContent=S.ap.length+' Pemain · '+S.backend;}
 
 // ── TABLE ──
-function rtab(){const m={behavior:{tid:'dataTable',hid:'tableHead',bid:'tableBody',rid:'rowsShown',pid:'pagination'},gui:{tid:'dataTableGui',hid:'tableHeadGui',bid:'tableBodyGui',rid:'rowsShownGui',pid:'paginationGui'}}[S.tab];if(!m)return;const f=S.fil,st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,f.length),pd=f.slice(st,en);if(!f.length){document.getElementById(m.hid).innerHTML='';document.getElementById(m.bid).innerHTML='<tr><td colspan="99" class="empty-state">📭 Tidak ada data</td></tr>';document.getElementById(m.rid).textContent='Menampilkan 0 dari 0';document.getElementById(m.pid).innerHTML='';return;}
-const cols=(S.tab==='behavior'?['created_at','player_name','position_history','behavior_sequence','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_'))));
-document.getElementById(m.hid).innerHTML='<tr>'+cols.map(c=>'<th onclick="sb(\''+c+'\')">'+fhdr(c)+'<span class="sort-arrow">'+(S.sc===c?(S.sd==='asc'?'▲':'▼'):'')+'</span></th>').join('')+'</tr>';
-document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c],r)+'</td>').join('')+'</tr>').join('');
-document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari '+f.length.toLocaleString();
-const tp=Math.ceil(f.length/S.rpp),pe=document.getElementById(m.pid);if(tp<=1)pe.innerHTML='';else{let h='<button class="page-btn"'+(S.p<=1?' disabled':'')+' onclick="gp('+(S.p-1)+')">‹</button>';for(let i=1;i<=tp;i++)h+='<button class="page-btn'+(i===S.p?' active':'')+'" onclick="gp('+i+')">'+i+'</button>';h+='<button class="page-btn"'+(S.p>=tp?' disabled':'')+' onclick="gp('+(S.p+1)+')">›</button>';pe.innerHTML=h;}}
+function rtab(){
+  const m={
+    behavior:{tid:'dataTable',hid:'tableHead',bid:'tableBody',rid:'rowsShown',pid:'pagination'},
+    gui:{tid:'dataTableGui',hid:'tableHeadGui',bid:'tableBodyGui',rid:'rowsShownGui',pid:'paginationGui'},
+    feedback:{tid:'dataTableFeedback',hid:'tableHeadFeedback',bid:'tableBodyFeedback',rid:'rowsShownFeedback',pid:'paginationFeedback'}
+  }[S.tab];
+  if(!m)return;
+  // For feedback tab, use raw data directly
+  let f;
+  if(S.tab==='feedback'){
+    f=[...S.raw.feedback||[]];
+    if(S.sp)f=f.filter(r=>r.player_name===S.sp);
+    if(S.dl)f=f.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
+    if(S.sr)f=f.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));
+  }else{
+    f=S.fil;
+  }
+  const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,f.length),pd=f.slice(st,en);
+  if(!f.length){document.getElementById(m.hid).innerHTML='';document.getElementById(m.bid).innerHTML='<tr><td colspan="99" class="empty-state">📭 Tidak ada data</td></tr>';document.getElementById(m.rid).textContent='Menampilkan 0 dari 0';document.getElementById(m.pid).innerHTML='';return;}
+  const cols=(S.tab==='behavior'?['created_at','player_name','position_history','behavior_sequence','section']:(S.tab==='gui'?['created_at','player_name','ui_element','input_data']:(S.tab==='feedback'?['created_at','player_name','section','hint_type','hint_message','player_answer']:Object.keys(f[0]).filter(c=>c!=='id'&&!c.startsWith('_')))));
+  document.getElementById(m.hid).innerHTML='<tr>'+cols.map(c=>'<th onclick="sb(\''+c+'\')">'+fhdr(c)+'<span class="sort-arrow">'+(S.sc===c?(S.sd==='asc'?'▲':'▼'):'')+'</span></th>').join('')+'</tr>';
+  document.getElementById(m.bid).innerHTML=pd.map(r=>'<tr>'+cols.map(c=>'<td title="'+escA(String(r[c]??''))+'">'+fcell(c,r[c],r)+'</td>').join('')+'</tr>').join('');
+  document.getElementById(m.rid).textContent='Menampilkan '+(st+1)+'–'+en+' dari '+f.length.toLocaleString();
+  const tp=Math.ceil(f.length/S.rpp),pe=document.getElementById(m.pid);if(tp<=1)pe.innerHTML='';else{let h='<button class="page-btn"'+(S.p<=1?' disabled':'')+' onclick="gp('+(S.p-1)+')">‹</button>';for(let i=1;i<=tp;i++)h+='<button class="page-btn'+(i===S.p?' active':'')+'" onclick="gp('+i+')">'+i+'</button>';h+='<button class="page-btn"'+(S.p>=tp?' disabled':'')+' onclick="gp('+(S.p+1)+')">›</button>';pe.innerHTML=h;}
+}
 
 // ── NPC CHAT ──
-function emotionBadge(e){
-  if(!e||e==='—')return'';
-  const m={confusion:'😕',frustration:'😤',joy:'😊',curiosity:'🤔',surprise:'😮',determination:'💪',sadness:'😢',calm:'😌'};
-  const icon=m[e]||'💭';
-  return'<span class="emotion-badge" title="'+escH(e)+'">'+icon+' '+escH(e)+'</span>';
-}
-function cpsBadge(s){
-  if(!s||s==='—')return'';
-  const names={MF:'Mess Finding',DF:'Data Finding',PF:'Problem Finding',IF:'Idea Finding',SF:'Solution Finding',AF:'Acceptance Finding'};
-  return'<span class="cps-badge" title="'+escH(names[s]||s)+'">🎯 '+escH(s)+'</span>';
-}
 function rnpc(){let c=[...S.raw.npc].reverse();if(S.sp)c=c.filter(r=>r.player_name===S.sp);if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));const box=$('#chatLogBox');if(!box)return;if(!c.length){box.innerHTML='<div class="empty-state">💬 Belum ada percakapan</div>';return;}const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,c.length);
 box.innerHTML=c.slice(st,en).map(r=>{
   const ts=r.created_at||r.timestamp||'';const t=ts?new Date(ts).toLocaleTimeString('id-ID'):'';
@@ -71,17 +78,14 @@ box.innerHTML=c.slice(st,en).map(r=>{
   const npc=r.npc_name||'NPC';const role=r.role||(isAI?'assistant':'user');
   const cls=role==='assistant'?'npc':'player';
   const sender=role==='assistant'?'🤖 '+escH(npc):'👤 '+escH(r.player_name||'Player');
-  const emo=role==='user'?emotionBadge(r.emotion):'';
-  const cps=cpsBadge(r.cps_stage);
-  const extras=(emo||cps)?'<div class="chat-extras">'+emo+cps+'</div>':'';
-  return'<div class="chat-bubble '+cls+'"><div class="sender">'+sender+'</div><div>'+escH(clean)+'</div>'+extras+'<div class="time">'+t+'</div></div>';
+  return'<div class="chat-bubble '+cls+'"><div class="sender">'+sender+'</div><div>'+escH(clean)+'</div><div class="time">'+t+'</div></div>';
 }).join('');
 box.scrollTop=box.scrollHeight;
 if($('#rowsShownNpc'))$('#rowsShownNpc').textContent='Menampilkan '+(st+1)+'–'+en+' dari '+c.length.toLocaleString();}
 
 // ── OVERVIEW ──
 function rov(){const pl={};const seq={};for(const r of[...S.raw.behavior]){const n=r.player_name||'?';if(!pl[n])pl[n]={name:n,chats:0,moves:0,guis:0,seqs:[]};pl[n].moves++;const code=Array.isArray(r.behavior_sequence)?r.behavior_sequence[0]:r.behavior_code||'';if(code){if(!seq[n])seq[n]=[];seq[n].push({code,ts:r.created_at||r.timestamp||''});}}for(const r of[...S.raw.npc,...S.raw.gui]){const n=r.player_name||'?';if(!pl[n])pl[n]={name:n,chats:0,moves:0,guis:0,seqs:[]};if(r.npc_name)pl[n].chats++;else pl[n].guis++;}const ps=Object.values(pl).sort((a,b)=>(b.chats+b.moves+b.guis)-(a.chats+a.moves+a.guis));if($('#playerListPanel'))$('#playerListPanel').innerHTML=ps.length?ps.slice(0,15).map(p=>{const sq=(seq[p.name]||[]).sort((a,b)=>a.ts.localeCompare(b.ts)).map(s=>s.code).join('→');return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(p.chats+p.moves+p.guis)+'</span><div style="font-size:0.6rem;color:var(--text2);margin-top:2px">'+escH(sq||'—')+'</div></div>';}).join(''):'<div class="empty-state" style="padding:20px">Belum ada pemain</div>';const nc={};for(const r of S.raw.npc){if(r.npc_name)nc[r.npc_name]=(nc[r.npc_name]||0)+1;}const ns=Object.entries(nc).sort((a,b)=>b[1]-a[1]);if($('#npcListPanel'))$('#npcListPanel').innerHTML=ns.length?ns.slice(0,15).map(([n,c])=>'<div class="npc-item"><span>🤖 '+escH(n)+'</span><span class="npc-count-badge">'+c+' chat</span></div>').join(''):'<div class="empty-state" style="padding:20px">Belum ada interaksi</div>';dchart();}
-function dchart(){const cv=$('#activityChart');if(!cv)return;const ctx=cv.getContext('2d'),w=cv.parentElement.clientWidth-28;cv.width=w;cv.height=250;ctx.clearRect(0,0,cv.width,cv.height);const bk={};for(const r of[...S.raw.behavior,...S.raw.npc,...S.raw.gui]){const ts=r.created_at||r.timestamp||'';if(!ts)continue;const t=ts.slice(0,16);if(!bk[t])bk[t]={b:0,n:0,g:0};if(r.position_history||r.x!=null)bk[t].b++;else if(r.npc_name)bk[t].n++;else bk[t].g++;}const ks=Object.keys(bk).sort();if(ks.length<2){ctx.fillStyle='#8b8fa3';ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('📈 Butuh data',cv.width/2,cv.height/2);return;}const pad=40,pw=cv.width-pad*2,ph=cv.height-pad*2,mx=Math.max(1,...ks.map(k=>bk[k].b+bk[k].n+bk[k].g));ctx.strokeStyle='#2e3242';ctx.lineWidth=0.5;for(let i=0;i<=4;i++){const y=pad+ph*(1-i/4);ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(cv.width-pad,y);ctx.stroke();}const bw=Math.max(2,Math.min(12,pw/ks.length-2));ks.forEach((k,i)=>{const x=pad+i*(pw/ks.length)+bw/2,b=bk[k];ctx.fillStyle='#5865f2';ctx.fillRect(x,pad+ph-(b.b/mx)*ph,bw,(b.b/mx)*ph);ctx.fillStyle='#f59e0b';ctx.fillRect(x,pad+ph-((b.b+b.n)/mx)*ph,bw,(b.n/mx)*ph);ctx.fillStyle='#06b6d4';ctx.fillRect(x,pad+ph-((b.b+b.n+b.g)/mx)*ph,bw,(b.g/mx)*ph);});ks.forEach((k,i)=>{if(i%Math.ceil(ks.length/8)===0||i===ks.length-1){ctx.fillStyle='#8b8fa3';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(k.slice(11,16),pad+i*(pw/ks.length)+bw/2,cv.height-8);}});ctx.fillStyle='#5865f2';ctx.fillRect(pad+10,10,10,10);ctx.fillStyle='#e1e4ed';ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText('Behavior',pad+24,20);ctx.fillStyle='#f59e0b';ctx.fillRect(pad+100,10,10,10);ctx.fillText('NPC',pad+114,20);ctx.fillStyle='#06b6d4';ctx.fillRect(pad+190,10,10,10);ctx.fillText('GUI',pad+204,20);}
+function dchart(){const cv=$('#activityChart');if(!cv)return;const ctx=cv.getContext('2d'),w=cv.parentElement.clientWidth-28;cv.width=w;cv.height=250;ctx.clearRect(0,0,cv.width,cv.height);const bk={};for(const r of[...S.raw.behavior,...S.raw.npc,...S.raw.gui,...S.raw.feedback]){const ts=r.created_at||r.timestamp||'';if(!ts)continue;const t=ts.slice(0,16);if(!bk[t])bk[t]={b:0,n:0,g:0,f:0};if(r.position_history||r.x!=null)bk[t].b++;else if(r.npc_name)bk[t].n++;else if(r.hint_type)bk[t].f++;else bk[t].g++;}const ks=Object.keys(bk).sort();if(ks.length<2){ctx.fillStyle='#8b8fa3';ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('📈 Butuh data',cv.width/2,cv.height/2);return;}const pad=40,pw=cv.width-pad*2,ph=cv.height-pad*2,mx=Math.max(1,...ks.map(k=>bk[k].b+bk[k].n+bk[k].g+bk[k].f));ctx.strokeStyle='#2e3242';ctx.lineWidth=0.5;for(let i=0;i<=4;i++){const y=pad+ph*(1-i/4);ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(cv.width-pad,y);ctx.stroke();}const bw=Math.max(2,Math.min(12,pw/ks.length-2));ks.forEach((k,i)=>{const x=pad+i*(pw/ks.length)+bw/2,b=bk[k];ctx.fillStyle='#5865f2';ctx.fillRect(x,pad+ph-(b.b/mx)*ph,bw,(b.b/mx)*ph);ctx.fillStyle='#f59e0b';ctx.fillRect(x,pad+ph-((b.b+b.n)/mx)*ph,bw,(b.n/mx)*ph);ctx.fillStyle='#06b6d4';ctx.fillRect(x,pad+ph-((b.b+b.n+b.g)/mx)*ph,bw,(b.g/mx)*ph);ctx.fillStyle='#a855f7';ctx.fillRect(x,pad+ph-((b.b+b.n+b.g+b.f)/mx)*ph,bw,(b.f/mx)*ph);});ks.forEach((k,i)=>{if(i%Math.ceil(ks.length/8)===0||i===ks.length-1){ctx.fillStyle='#8b8fa3';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(k.slice(11,16),pad+i*(pw/ks.length)+bw/2,cv.height-8);}});ctx.fillStyle='#5865f2';ctx.fillRect(pad+10,10,10,10);ctx.fillStyle='#e1e4ed';ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText('Behavior',pad+24,20);ctx.fillStyle='#f59e0b';ctx.fillRect(pad+100,10,10,10);ctx.fillText('NPC',pad+114,20);ctx.fillStyle='#06b6d4';ctx.fillRect(pad+170,10,10,10);ctx.fillText('GUI',pad+184,20);ctx.fillStyle='#a855f7';ctx.fillRect(pad+240,10,10,10);ctx.fillText('Feedback',pad+254,20);}
 
 // ── BEHAVIOR SEQUENCE TAB ──
 function buildPlayerSeq(){
@@ -105,7 +109,6 @@ function rseq(){
   if($('#seqCount'))$('#seqCount').textContent=list.length+' pemain dengan behavior sequence';
   if(!list.length){container.innerHTML='<div class="empty-state">🔀 Belum ada data behavior sequence</div>';return;}
   container.innerHTML=list.map(p=>{
-    // Reverse agar dari LAMA → BARU (kiri = awal, kanan = akhir)
     const seq=[...p.sequence].reverse();
     const deduped=[];
     let prev='',count=0;
@@ -157,75 +160,12 @@ function seqTimerSetup(){
   },1e3);
 }
 
-// ── MINIMAP v2 ──
-function dmap(){const cv=$('#minimapCanvas');if(!cv)return;const ctx=cv.getContext('2d'),sz=280;cv.width=sz;cv.height=sz;
-// Background
-ctx.fillStyle='#0d1117';ctx.fillRect(0,0,sz,sz);
-// Grid with labels
-ctx.strokeStyle='#1a2233';ctx.lineWidth=0.5;
-for(let i=0;i<=sz;i+=sz/8){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,sz);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(sz,i);ctx.stroke();}
-// Border
-ctx.strokeStyle='#2e3a50';ctx.lineWidth=2;ctx.strokeRect(1,1,sz-2,sz-2);
-
-const pos={};const nw=new Date();
-for(const r of(S.raw.behavior||[])){
-  // Try position_history first, then direct x,y
-  let px=null,py=null;
-  const ph=r.position_history;if(ph&&ph.length){const lp=ph[ph.length-1];px=lp.x;py=lp.y;}
-  if(px==null&&r.x!=null){px=r.x;py=r.y;}
-  if(px==null||py==null)continue;
-  const nm=r.player_name||'?';const ts=r.created_at||r.timestamp||'';
-  if(!pos[nm]||ts>pos[nm].ts)pos[nm]={x:parseFloat(px),y:parseFloat(py),ts};
-}
-const es=Object.entries(pos);
-if(!es.length){ctx.fillStyle='#4a5568';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('🗺️ Minimap',sz/2,sz/2-10);ctx.font='10px system-ui';ctx.fillText('Playtest untuk lihat posisi',sz/2,sz/2+12);rpl();return;}
-
-let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
-for(const[,p]of es){mnX=Math.min(mnX,p.x);mnY=Math.min(mnY,p.y);mxX=Math.max(mxX,p.x);mxY=Math.max(mxY,p.y);}
-// Add 20% padding
-const rx=mxX-mnX||50,ry=mxY-mnY||50;
-mnX-=rx*0.1;mxX+=rx*0.1;mnY-=ry*0.1;mxY+=ry*0.1;
-const pd=25,rX=mxX-mnX,rY=mxY-mnY,sc=Math.min((sz-pd*2)/rX,(sz-pd*2)/rY),ox=(sz-(rX*sc))/2-mnX*sc,oy=(sz-(rY*sc))/2-mnY*sc;
-
-// Draw compass rose
-ctx.fillStyle='#4a5568';ctx.font='10px system-ui';ctx.textAlign='center';
-ctx.fillText('N',sz-15,18);ctx.fillText('↑',sz-15,30);
-
-// Axis labels
-ctx.fillStyle='#5a6578';ctx.font='8px monospace';
-ctx.fillText(Math.round(mnX)+','+Math.round(mxY),pd,sz-pd+12);
-ctx.fillText(Math.round(mxX)+','+Math.round(mxY),sz-pd,sz-pd+12);
-ctx.fillText(Math.round(mnX)+','+Math.round(mnY),pd,12);
-ctx.fillText(Math.round(mxX)+','+Math.round(mnY),sz-pd,12);
-
-// Scale bar
-ctx.fillStyle='#5a6578';ctx.fillRect(pd+5,sz-pd-8,40,2);
-ctx.fillText(Math.round(40/sc)+' studs',pd+25,sz-pd-2);
-
-for(const[nm,p]of es){
-  const px=p.x*sc+ox,py=sz-(p.y*sc+oy);
-  if(px<0||px>sz||py<0||py>sz)continue;
-  const ag=(nw-new Date(p.ts))/6e4;
-  let cl='#22c55e',gl='rgba(34,197,94,.7)',r=5;
-  if(ag>15){cl='#8b8fa3';gl='rgba(139,143,163,.4)';r=3;}
-  else if(ag>5){cl='#f59e0b';gl='rgba(245,158,11,.5)';r=4;}
-  // Outer glow
-  ctx.fillStyle=gl;ctx.beginPath();ctx.arc(px,py,r+4,0,Math.PI*2);ctx.fill();
-  // Inner dot
-  ctx.fillStyle=cl;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
-  // White center
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(px,py,1.5,0,Math.PI*2);ctx.fill();
-  // Label with background
-  const lbl=nm.slice(0,8);ctx.font='8px system-ui';const tw=ctx.measureText(lbl).width;
-  ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(px-tw/2-3,py-22,tw+6,12);
-  ctx.fillStyle='#e1e4ed';ctx.textAlign='center';ctx.fillText(lbl,px,py-12);
-}
-rpl();}
-function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
+// ── MINIMAP REMOVED ──
+function dmap(){return;}
+function rpl(){const c=$('#playerList');if(!c)return;c.innerHTML=S.ap.length?S.ap.slice(0,20).map(p=>{const ch=S.raw.npc.filter(r=>r.player_name===p.name||r.player_name===p.id).length,mv=S.raw.behavior.filter(r=>r.player_name===p.name||r.player_name===p.id).length,gu=S.raw.gui.filter(r=>r.player_name===p.name).length,fb=S.raw.feedback.filter(r=>r.player_name===p.name).length;return'<div class="player-item" onclick="fbp(\''+escA(p.name)+'\')"><span class="player-name">👤 '+escH(p.name)+'</span><span class="player-count-badge-sm">'+(ch+mv+gu+fb)+'</span></div>';}).join(''):'<div class="empty-state" style="padding:15px">Belum ada pemain</div>';}
 function fbp(n){const s=$('#playerFilter');if(s){s.value=n;S.sp=n;}S.p=1;apply();}
 
-function exDOCX(){if(S.tab==='npc')return exChatDOCX();if(S.tab==='gui')return exGuiDOCX();if(S.tab==='sequence')return exSeqDOCX();if(S.tab==='overview')return exSeqDOCX();return exBehaviorDOCX();}
-function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportBehaviorDOCX')?.addEventListener('click',exDOCX);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#exportChatDOCX')?.addEventListener('click',exChatDOCX);$('#exportChatCSV')?.addEventListener('click',exChatCSV);$('#exportChatJSON')?.addEventListener('click',exChatJSON);$('#exportGuiCSV')?.addEventListener('click',exGuiCSV);$('#exportGuiJSON')?.addEventListener('click',exGuiJSON);$('#exportGuiDOCX')?.addEventListener('click',exGuiDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
+function esetup(){$('#exportCSV')?.addEventListener('click',exCSV);$('#exportJSON')?.addEventListener('click',exJSON);$('#exportSeqCSV')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON')?.addEventListener('click',exSeqJSON);$('#exportSeqCSV2')?.addEventListener('click',exSeqCSV);$('#exportSeqJSON2')?.addEventListener('click',exSeqJSON);$('#exportSeqDOCX')?.addEventListener('click',exSeqDOCX);$('#exportSeqDOCX2')?.addEventListener('click',exSeqDOCX);$('#rowsPerPage')?.addEventListener('change',e=>{S.rpp=parseInt(e.target.value);S.p=1;apply();});}
 function exCSV(){
   let data,cols;
   if(S.tab==='npc'){
@@ -233,7 +173,7 @@ function exCSV(){
   }else if(S.tab==='behavior'){
     data=S.raw.behavior||[];cols=['created_at','player_name','position_history','behavior_code','behavior_sequence','section'];
   }else if(S.tab==='feedback'){
-    data=S.raw.feedback||[];cols=['created_at','player_name','frame','feedback_type','feedback_message','player_answer','is_correct','attempt_count'];
+    data=S.raw.feedback||[];cols=['created_at','player_name','frame','feedback_type','player_answer','feedback_message','is_correct','attempt_count','question_num'];
   }else{
     data=S.raw.gui||[];cols=['created_at','player_name','ui_element','input_data'];
   }
@@ -265,7 +205,6 @@ function dl(n,c,t){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=doc
 
 // ── EXPORT BEHAVIOR SEQUENCE (Visual Format) ──
 function getFilteredSeqData(){
-  // Pakai data yang SAMA dengan dashboard (buildPlayerSeq + filter)
   let list=buildPlayerSeq();
   if(S.sp)list=list.filter(p=>p.player_name===S.sp);
   if(S.dl)list=list.filter(p=>p.lastTs.slice(0,10)===S.dl);
@@ -335,10 +274,8 @@ function exSeqJSON(){
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(out,null,2),'application/json');
 }
 function exSeqDOCX(){
-  let list=buildPlayerSeq();
-  if(S.sp)list=list.filter(p=>p.player_name===S.sp);
-  if(S.dl)list=list.filter(p=>p.lastTs.slice(0,10)===S.dl);
-  if(!list.length){alert('Tidak ada data behavior untuk diexport!');return;}
+  const data=getFilteredSeqData();
+  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
   
   const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   
@@ -368,33 +305,19 @@ tr:nth-child(even){background:#f8f9fa}
 <table>
 <tr><th>No</th><th>Player</th><th>Total Aksi</th><th>Urutan Behavior</th><th>Ringkasan</th><th>Section</th></tr>`;
 
-  list.forEach((p,i)=>{
-    // PERSIS SAMA dengan rseq() — reverse dulu, baru dedup
-    const seq=[...p.sequence].reverse();
-    const deduped=[];
-    let prev='',count=0;
-    for(const code of seq){
-      if(code===prev){count++;}
-      else{if(prev)deduped.push({code:prev,count});prev=code;count=1;}
-    }
-    if(prev)deduped.push({code:prev,count});
-    
+  data.forEach((r,i)=>{
+    const deduped=dedupSequence(r.sequence);
     const seqHTML=deduped.map(item=>{
-      const cls='code-'+String(item.code).charAt(0);
-      const label=item.count>1?String(item.code)+'×'+item.count:String(item.code);
+      const cls='code-'+item.code.charAt(0);
+      const label=item.count>1?item.code+'×'+item.count:item.code;
       return'<span class="seq-badge '+cls+'">'+label+'</span>';
     }).join(' → ');
     
-    // PERSIS SAMA dengan rseq() — summary dari reversed seq
-    const codeCounts={};
-    for(const c of seq)codeCounts[c]=(codeCounts[c]||0)+1;
-    const summary=Object.entries(codeCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=>c+':'+n).join(' ');
+    const summary=seqToSummary(r.sequence);
+    const sections=[...new Set(r.sections.filter(Boolean))].join(', ')||'—';
     
-    const sections=[...new Set(p.sections.filter(Boolean))].join(', ')||'—';
-    const lastTime=p.lastTs?new Date(p.lastTs).toLocaleTimeString('id-ID'):'—';
-    
-    html+='<tr><td>'+(i+1)+'</td><td><b>'+escH(p.player_name)+'</b></td><td>'+p.total_actions+
-      '</td><td>'+seqHTML+'</td><td class="summary">'+summary+'</td><td>'+escH(sections)+'</td></tr>';
+    html+='<tr><td>'+(i+1)+'</td><td><b>'+r.player_name+'</b></td><td>'+r.total_actions+
+      '</td><td>'+seqHTML+'</td><td class="summary">'+summary+'</td><td>'+sections+'</td></tr>';
   });
 
   html+=`</table>
@@ -412,276 +335,10 @@ tr:nth-child(even){background:#f8f9fa}
 <tr><td><span class="seq-badge code-S">S</span></td><td>Skip</td><td>Pemain melewati tahap CPS</td></tr>
 </table>
 
-<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: Supabase | ${list.length} pemain</p>
+<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: Supabase + SQLite | ${data.length} pemain</p>
 </body></html>`;
 
   dl('behavior_sequence_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
-}
-function exChatDOCX(){
-  let c=[...S.raw.npc].reverse();
-  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
-  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
-  if(!c.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
-  
-  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  
-  // Group by player+NPC conversation
-  const convos={};
-  c.forEach(r=>{
-    const key=(r.player_name||'?')+'|'+(r.npc_name||'NPC');
-    if(!convos[key])convos[key]={player:r.player_name||'?',npc:r.npc_name||'NPC',messages:[],emotions:[]};
-    const role=r.role||'user';
-    convos[key].messages.push({role,content:r.message_content||r.message||'',time:r.created_at||r.timestamp||'',emotion:r.emotion||'',cps:r.cps_stage||''});
-    if(r.emotion&&r.emotion!=='—')convos[key].emotions.push(r.emotion);
-  });
-  
-  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset="utf-8">
-<style>
-body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
-h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
-h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
-h3{font-size:11pt;color:#333;margin:12px 0 6px}
-.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
-table{border-collapse:collapse;width:100%;margin:8px 0 16px}
-th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
-td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
-tr:nth-child(even){background:#f8f9fa}
-.msg-user{background:#e3f2fd;border-left:3px solid #2196f3;padding:8px;margin:4px 0;border-radius:4px}
-.msg-npc{background:#e8f5e9;border-left:3px solid #4caf50;padding:8px;margin:4px 0;border-radius:4px}
-.emotion-tag{display:inline-block;background:#fff3cd;color:#856404;padding:1px 8px;border-radius:10px;font-size:9pt;margin:2px}
-.cps-tag{display:inline-block;background:#d1ecf1;color:#0c5460;padding:1px 8px;border-radius:10px;font-size:9pt;margin:2px}
-.summary-box{background:#f8f9fa;border:1px solid #dee2e6;padding:12px;border-radius:6px;margin:8px 0}
-.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
-</style></head><body>
-<h1>💬 Chat NPC Report</h1>
-<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
-
-<h2>📊 Ringkasan Percakapan</h2>
-<table>
-<tr><th>No</th><th>Player</th><th>NPC</th><th>Total Pesan</th><th>Emosi Dominan</th><th>CPS Stage</th></tr>`;
-
-  let i=0;
-  for(const[key,conv]of Object.entries(convos)){
-    i++;
-    // Count emotions
-    const emoCount={};
-    conv.emotions.forEach(e=>{emoCount[e]=(emoCount[e]||0)+1;});
-    const dominant=Object.entries(emoCount).sort((a,b)=>b[1]-a[1])[0];
-    const dominantStr=dominant?dominant[0]+' ('+dominant[1]+'×)':'—';
-    
-    // Get CPS stages
-    const cpsSet=[...new Set(conv.messages.filter(m=>m.cps&&m.cps!=='—').map(m=>m.cps))];
-    const cpsStr=cpsSet.join(', ')||'—';
-    
-    html+='<tr><td>'+i+'</td><td><b>'+escH(conv.player)+'</b></td><td>🤖 '+escH(conv.npc)+'</td><td>'+conv.messages.length+'</td><td>'+escH(dominantStr)+'</td><td>'+escH(cpsStr)+'</td></tr>';
-  }
-  
-  html+=`</table>
-
-<h2>📝 Detail Percakapan</h2>`;
-
-  for(const[key,conv]of Object.entries(convos)){
-    html+='<h3>👤 '+escH(conv.player)+' ↔ 🤖 '+escH(conv.npc)+'</h3>';
-    
-    for(const msg of conv.messages){
-      const cls=msg.role==='assistant'?'msg-npc':'msg-user';
-      const icon=msg.role==='assistant'?'🤖':'👤';
-      const name=msg.role==='assistant'?conv.npc:conv.player;
-      const time=msg.time?new Date(msg.time).toLocaleTimeString('id-ID'):'';
-      const emo=msg.emotion&&msg.emotion!=='—'?'<span class="emotion-tag">💭 '+escH(msg.emotion)+'</span>':'';
-      const cps=msg.cps&&msg.cps!=='—'?'<span class="cps-tag">🎯 '+escH(msg.cps)+'</span>':'';
-      
-      html+='<div class="'+cls+'"><b>'+icon+' '+escH(name)+'</b> <span style="color:#999;font-size:9pt">'+time+'</span><br>'+escH(msg.content);
-      if(emo||cps)html+='<br>'+emo+' '+cps;
-      html+='</div>';
-    }
-  }
-  
-  // Emotion summary
-  const allEmotions={};
-  c.forEach(r=>{if(r.emotion&&r.emotion!=='—')allEmotions[r.emotion]=(allEmotions[r.emotion]||0)+1;});
-  if(Object.keys(allEmotions).length){
-    html+=`<h2>🧠 Analisis Emosi (SENA Framework)</h2>
-<div class="summary-box">`;
-    const emoIcons={confusion:'😕',frustration:'😤',joy:'😊',curiosity:'🤔',surprise:'😮',determination:'💪',sadness:'😢',calm:'😌'};
-    const total=Object.values(allEmotions).reduce((a,b)=>a+b,0);
-    for(const[emo,cnt]of Object.entries(allEmotions).sort((a,b)=>b[1]-a[1])){
-      const pct=Math.round(cnt/total*100);
-      html+=(emoIcons[emo]||'💭')+' <b>'+escH(emo)+'</b>: '+cnt+' ('+pct+'%)<br>';
-    }
-    html+='</div>';
-  }
-  
-  html+=`
-<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>
-Memory-Driven NPC + Emotion-Aware + FS-CPSM Integration<br>
-Data: Supabase | ${c.length} pesan dari ${Object.keys(convos).length} percakapan</p>
-</body></html>`;
-  
-  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
-}
-
-// ── CHAT NPC CSV/JSON EXPORT ──
-function getFilteredChatData(){
-  let c=[...S.raw.npc].reverse();
-  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
-  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
-  if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));
-  return c;
-}
-function exChatCSV(){
-  const data=getFilteredChatData();
-  if(!data.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
-  const cols=['created_at','player_name','npc_target','role','message_content','emotion','emotion_confidence','cps_stage','npc_response_type'];
-  let csv=cols.join(',')+'\n';
-  data.forEach(r=>{csv+=cols.map(c=>{let v=r[c]||'';if(typeof v==='string'&&(v.includes(',')||v.includes('"')||v.includes('\n')))v='"'+v.replace(/"/g,'""')+'"';return v;}).join(',')+'\n';});
-  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
-}
-function exChatJSON(){
-  const data=getFilteredChatData();
-  if(!data.length){alert('Tidak ada data chat NPC untuk diexport!');return;}
-  dl('chat_npc_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
-}
-
-// ── BEHAVIOR WORD EXPORT ──
-function exBehaviorDOCX(){
-  let data=[...S.raw.behavior].reverse();
-  if(S.sp)data=data.filter(r=>r.player_name===S.sp);
-  if(S.dl)data=data.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
-  if(!data.length){alert('Tidak ada data behavior untuk diexport!');return;}
-  
-  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  
-  // Group by player
-  const players={};
-  data.forEach(r=>{
-    const n=r.player_name||'?';
-    if(!players[n])players[n]={name:n,records:[],sections:new Set()};
-    players[n].records.push(r);
-    if(r.section)players[n].sections.add(r.section);
-  });
-  
-  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset="utf-8">
-<style>
-body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
-h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
-h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
-.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
-table{border-collapse:collapse;width:100%;margin:8px 0 16px}
-th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
-td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
-tr:nth-child(even){background:#f8f9fa}
-.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
-</style></head><body>
-<h1>🏃 Behavior Log Report</h1>
-<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
-
-<h2>📋 Data Behavior</h2>
-<table>
-<tr><th>No</th><th>Waktu</th><th>Player</th><th>Posisi</th><th>Behavior</th><th>Section</th></tr>`;
-
-  const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,data.length);
-  data.slice(st,en).forEach((r,i)=>{
-    const ts=r.created_at||r.timestamp||'';
-    const time=ts?new Date(ts).toLocaleString('id-ID'):'';
-    const pos=Array.isArray(r.position_history)&&r.position_history.length?'('+Math.round(r.position_history[r.position_history.length-1].x)+', '+Math.round(r.position_history[r.position_history.length-1].y)+')':'—';
-    const behav=Array.isArray(r.behavior_sequence)?r.behavior_sequence.join(' → '):(r.behavior_code||'—');
-    const sec=r.section||'—';
-    html+='<tr><td>'+(i+1)+'</td><td>'+time+'</td><td><b>'+escH(r.player_name||'?')+'</b></td><td>'+pos+'</td><td>'+escH(behav)+'</td><td>'+escH(sec)+'</td></tr>';
-  });
-  
-  html+=`</table>
-
-<h2>📊 Ringkasan Per Pemain</h2>
-<table>
-<tr><th>Player</th><th>Total Records</th><th>Sections</th></tr>`;
-  
-  for(const[n,p]of Object.entries(players)){
-    html+='<tr><td><b>'+escH(n)+'</b></td><td>'+p.records.length+'</td><td>'+escH([...p.sections].join(', ')||'—')+'</td></tr>';
-  }
-  
-  html+=`</table>
-<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: ${data.length} records</p>
-</body></html>`;
-  
-  dl('behavior_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
-}
-
-// ── GUI LOGS CSV/JSON/WORD EXPORT ──
-function getFilteredGuiData(){
-  let c=[...S.raw.gui].reverse();
-  if(S.sp)c=c.filter(r=>r.player_name===S.sp);
-  if(S.dl)c=c.filter(r=>{const ts=r.created_at||r.timestamp||'';return ts.slice(0,10)===S.dl;});
-  if(S.sr)c=c.filter(r=>Object.values(r).some(v=>v!=null&&String(v).toLowerCase().includes(S.sr)));
-  return c;
-}
-function exGuiCSV(){
-  const data=getFilteredGuiData();
-  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
-  const cols=['created_at','player_name','ui_element','input_data'];
-  let csv=cols.join(',')+'\n';
-  data.forEach(r=>{csv+=cols.map(c=>{let v=r[c]||'';if(typeof v==='string'&&(v.includes(',')||v.includes('"')))v='"'+v.replace(/"/g,'""')+'"';return v;}).join(',')+'\n';});
-  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.csv',csv,'text/csv;charset=utf-8');
-}
-function exGuiJSON(){
-  const data=getFilteredGuiData();
-  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
-  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
-}
-function exGuiDOCX(){
-  let data=getFilteredGuiData();
-  if(!data.length){alert('Tidak ada data GUI logs untuk diexport!');return;}
-  
-  const today=new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  
-  // Count by UI element
-  const elemCount={};
-  data.forEach(r=>{const el=r.ui_element||'?';elemCount[el]=(elemCount[el]||0)+1;});
-  
-  let html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset="utf-8">
-<style>
-body{font-family:Calibri,sans-serif;font-size:11pt;color:#222}
-h1{font-size:16pt;text-align:center;color:#1a1a2e;margin-bottom:4px}
-h2{font-size:13pt;color:#5865f2;margin:18px 0 8px;border-bottom:2px solid #5865f2;padding-bottom:4px}
-.subtitle{text-align:center;color:#666;font-size:10pt;margin-bottom:18px}
-table{border-collapse:collapse;width:100%;margin:8px 0 16px}
-th{background:#5865f2;color:#fff;padding:8px 10px;text-align:left;font-size:10pt;border:1px solid #4752c4}
-td{padding:6px 10px;border:1px solid #ddd;font-size:10pt;vertical-align:top}
-tr:nth-child(even){background:#f8f9fa}
-.footer{text-align:center;color:#999;font-size:9pt;margin-top:24px;border-top:1px solid #ddd;padding-top:8px}
-</style></head><body>
-<h1>🖥️ GUI Logs Report</h1>
-<p class="subtitle">Simulasi Banjir — Desa Sukamaju<br>${today}</p>
-
-<h2>📊 Ringkasan UI Element</h2>
-<table>
-<tr><th>UI Element</th><th>Jumlah Interaksi</th></tr>`;
-  
-  for(const[el,cnt]of Object.entries(elemCount).sort((a,b)=>b[1]-a[1])){
-    html+='<tr><td>'+escH(el)+'</td><td>'+cnt+'</td></tr>';
-  }
-  
-  html+=`</table>
-
-<h2>📋 Detail GUI Logs</h2>
-<table>
-<tr><th>No</th><th>Waktu</th><th>Player</th><th>UI Element</th><th>Input Data</th></tr>`;
-  
-  const st=(S.p-1)*S.rpp,en=Math.min(st+S.rpp,data.length);
-  data.slice(st,en).forEach((r,i)=>{
-    const ts=r.created_at||r.timestamp||'';
-    const time=ts?new Date(ts).toLocaleString('id-ID'):'';
-    html+='<tr><td>'+(i+1)+'</td><td>'+time+'</td><td><b>'+escH(r.player_name||'?')+'</b></td><td>'+escH(r.ui_element||'—')+'</td><td>'+escH(r.input_data||'—')+'</td></tr>';
-  });
-  
-  html+=`</table>
-<p class="footer">Generated by Simulasi Banjir — Player Monitor Dashboard<br>Data: ${data.length} GUI interactions</p>
-</body></html>`;
-  
-  dl('gui_logs_'+new Date().toISOString().slice(0,10)+'.doc',html,'application/msword');
 }
 
 function fhdr(c){if(c==='posisi')return'Posisi';return c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());}
@@ -710,6 +367,14 @@ function fcell(c,v,r){
     if(sec)return'<span class="badge-section">'+escH(String(sec))+'</span>';
     return'<span style="opacity:.4">—</span>';
   }
+  if(c==='hint_type'){
+    const colors={prompt:'#f59e0b',hint:'#f59e0b',guidance:'#f59e0b',brainstorm:'#f59e0b',correct:'#22c55e',achievement:'#06b6d4'};
+    const color=colors[v]||'#8b8fa3';
+    return'<span style="color:'+color+';font-weight:bold">'+escH(String(v||'—'))+'</span>';
+  }
+  if(c==='hint_message'){
+    return'<span style="font-size:0.85rem;opacity:0.8">'+escH(String(v||'').slice(0,80))+'</span>';
+  }
   if(c==='input_data'&&typeof v==='string'){try{const j=JSON.parse(v);return j.value||j.section||v.slice(0,50);}catch(e){return v.slice(0,60);}}
   if(Array.isArray(v))return v[0]||'';
   if(typeof v==='object')return JSON.stringify(v).slice(0,50);
@@ -720,5 +385,3 @@ function deb(fn,ms){let t;return function(...args){clearTimeout(t);t=setTimeout(
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function escA(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 init();
-function latestDate(){let d='';for(const t of['behavior','gui','npc','feedback'])for(const r of S.raw[t]){const ts=r.created_at||r.timestamp||'';if(ts>d)d=ts;}return d.slice(0,10);}
-function ustats(){$('#statChats').textContent=(S.raw.npc||[]).length;$('#statMoves').textContent=(S.raw.behavior||[]).length;$('#statGui').textContent=(S.raw.gui||[]).length;$('#statFeedback').textContent=(S.raw.feedback||[]).length;$('#statPlayers').textContent=S.ap.length;}
